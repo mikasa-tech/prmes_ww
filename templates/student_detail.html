@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>{{ student.name }} ({{ student.seat_no }})</h3>
+<p><strong>Group:</strong> {{ student.group_no or '-' }} | <strong>Project:</strong> {{ student.project_title or '-' }}</p>
+
+<h4>Evaluation Summary</h4>
+<table>
+  <tr>
+    <th>Evaluator</th>
+    <th>Total Marks</th>
+  </tr>
+  <tr>
+    <td>Member 1</td>
+    <td>{{ (ev.member1_literature or 0) + (ev.member1_problem or 0) + (ev.member1_presentation or 0) + (ev.member1_qa or 0) }}</td>
+  </tr>
+  <tr>
+    <td>Member 2</td>
+    <td>{{ (ev.member2_literature or 0) + (ev.member2_problem or 0) + (ev.member2_presentation or 0) + (ev.member2_qa or 0) }}</td>
+  </tr>
+  <tr>
+    <td>Internal Guide</td>
+    <td>{{ (ev.guide_literature or 0) + (ev.guide_problem or 0) + (ev.guide_presentation or 0) + (ev.guide_qa or 0) }}</td>
+  </tr>
+  <tr style="background-color: #f0f0f0; font-weight: bold;">
+    <td>Average Marks</td>
+    <td><strong>{{ ev.total_marks }}</strong></td>
+  </tr>
+</table>
+
+<h4>Component Breakdown</h4>
+<table>
+  <tr><th>Component</th><th>Marks</th></tr>
+  <tr><td>Literature Survey (20)</td><td>{{ ev.literature_survey }}</td></tr>
+  <tr><td>Problem Identification (10)</td><td>{{ ev.problem_identification }}</td></tr>
+  <tr><td>Project Presentation Skill (10)</td><td>{{ ev.presentation }}</td></tr>
+  <tr><td>Question and Answer Session (10)</td><td>{{ ev.question_answer }}</td></tr>
+  <tr><th>Total (50)</th><th>{{ ev.total_marks }}</th></tr>
+</table>
+
+<p><a href="{{ url_for('download_review1', student_id=student.id) }}">Download Review-1 Excel</a></p>
+{% endblock %}

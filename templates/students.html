@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Students</h3>
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Group</th>
+      <th>Seat No</th>
+      <th>Name</th>
+      <th>Project Title</th>
+      <th>Lit (20)</th>
+      <th>Problem (10)</th>
+      <th>Presentation (10)</th>
+      <th>Q&A (10)</th>
+      <th>Total (50)</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s, ev in items %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ s.group_no or '-' }}</td>
+      <td>{{ s.seat_no }}</td>
+      <td>{{ s.name }}</td>
+      <td>{{ s.project_title or '-' }}</td>
+      <td>{{ ev.literature_survey }}</td>
+      <td>{{ ev.problem_identification }}</td>
+      <td>{{ ev.presentation }}</td>
+      <td>{{ ev.question_answer }}</td>
+      <td><strong>{{ ev.total_marks }}</strong></td>
+      <td>
+        <a href="{{ url_for('student_detail', student_id=s.id) }}">View</a> |
+        <a href="{{ url_for('download_review1', student_id=s.id) }}">Download Excel</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+
