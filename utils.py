@@ -1,4 +1,5 @@
 from typing import Dict, List
+import re
 
 WEIGHTS = {
     "literature_survey": 20,
@@ -9,7 +10,20 @@ WEIGHTS = {
 TOTAL_MAX = 50
 
 def normalize_header(h: str) -> str:
-    return (h or "").strip().lower().replace(" ", "_")
+    """
+    Normalize CSV header names to a stable snake_case token.
+    - Removes BOM and non-breaking spaces
+    - Lowercases and collapses any non-alphanumeric to single underscores
+    - Trims leading/trailing underscores
+    """
+    s = (h or "")
+    # Remove BOM and NBSP and unify whitespace
+    s = s.replace("\ufeff", "").replace("\xa0", " ")
+    s = s.strip().lower()
+    # Replace any run of non-alphanumerics with underscore
+    s = re.sub(r"[^a-z0-9]+", "_", s)
+    s = re.sub(r"_+", "_", s).strip("_")
+    return s
 
 def _hamilton_round(values: Dict[str, float], target_sum: int) -> Dict[str, int]:
     # Largest remainder method keeps sum stable and fair

@@ -1,14 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Upload Review‑1 CSV</h3>
+<h3>Upload Review‑1 Excel (.xlsx)</h3>
 <form method="post" enctype="multipart/form-data">
-  <input type="file" name="file" accept=".csv" required />
+  <input type="file" name="file" accept=".xlsx" required />
   <button type="submit">Upload</button>
 </form>
-<p>Accepted headers (case-insensitive):</p>
+<p>Upload an Excel .xlsx file with a header row. Accepted headers (case-insensitive):</p>
 <ul>
   <li>Required: <code>name</code>, <code>seat_no</code>, plus either <code>total</code> or all components.</li>
   <li>Optional: <code>group_no</code>, <code>project_title</code>.</li>
   <li>Optional components: <code>literature_survey</code>, <code>problem_identification</code>, <code>presentation</code>, <code>question_answer</code>.</li>
+  <li>Alternatively: <code>Member 1</code>, <code>Member 2</code>, <code>Internal Guide</code> totals (the app will compute components and averages).</li>
 </ul>
 {% endblock %}

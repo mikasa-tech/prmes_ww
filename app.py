@@ -9,6 +9,7 @@ from excel_template import build_review1_workbook
 from dotenv import load_dotenv
 import sqlalchemy
 from sqlalchemy import text
+from openpyxl import load_workbook
 
 APP_DIR = Path(__file__).parent.resolve()
 EXPORTS_DIR = APP_DIR / "exports"
@@ -55,18 +56,40 @@ def create_app() -> Flask:
         if request.method == "POST":
             file = request.files.get("file")
             if not file or file.filename.strip() == "":
-                flash("Please choose a CSV file.", "error")
+                flash("Please choose an .xlsx file.", "error")
                 return redirect(request.url)
 
-            # Accept UTF-8 CSV
-            text = file.stream.read().decode("utf-8", errors="replace")
-            reader = csv.DictReader(text.splitlines())
-            headers = [normalize_header(h) for h in reader.fieldnames or []]
+            filename = file.filename.lower().strip()
+            if not filename.endswith(".xlsx"):
+                flash("Only .xlsx files are accepted.", "error")
+                return redirect(request.url)
+
+            # Read Excel (.xlsx) with openpyxl
+            raw = file.stream.read()
+            try:
+                wb = load_workbook(io.BytesIO(raw), data_only=True)
+            except Exception:
+                flash("Could not read the .xlsx file. Please ensure it is a valid Excel file.", "error")
+                return redirect(request.url)
+            ws = wb.active
+
+            header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), tuple())
+            fieldnames = [str(v) if v is not None else "" for v in header_row]
+            headers = [normalize_header(h) for h in fieldnames]
+
+            def iter_rows_dict():
+                for vals in ws.iter_rows(min_row=2, values_only=True):
+                    row = {}
+                    for i, key in enumerate(fieldnames):
+                        val = vals[i] if i < len(vals) else None
+                        row[key] = val
+                    yield row
+            rows_iter = iter_rows_dict()
 
             # Map common header names to our keys
             # Required: student name, seat no. Optional: group no, project title, evaluator marks.
             key_map = {}
-            for raw in reader.fieldnames or []:
+            for raw in fieldnames or []:
                 h = normalize_header(raw)
                 if h in ("name", "student_name"):
                     key_map["name"] = raw
@@ -99,18 +122,29 @@ def create_app() -> Flask:
             if "total" not in key_map and not has_components and not has_three_evaluators:
                 missing.append("total or all four component columns or Member 1 + Member 2 + Internal Guide")
             if missing:
-                flash(f"CSV missing required columns: {', '.join(missing)}", "error")
+                flash(f"Excel file missing required columns: {', '.join(missing)}", "error")
+                return redirect(request.url)
+
+            # Replace all existing data before importing new Excel (no UI toggle)
+            try:
+                # Delete in FK-safe order
+                db.session.execute(text("DELETE FROM evaluation"))
+                db.session.execute(text("DELETE FROM student"))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                flash("Failed to reset existing data before import.", "error")
                 return redirect(request.url)
 
             created = 0
-            for row in reader:
-                name = (row.get(key_map["name"]) or "").strip()
-                seat_no = (row.get(key_map["seat_no"]) or "").strip()
+            for row in rows_iter:
+                name = str(row.get(key_map["name"]) or "").strip()
+                seat_no = str(row.get(key_map["seat_no"]) or "").strip()
                 if not name or not seat_no:
                     continue
 
-                group_no = (row.get(key_map.get("group_no", ""), "") or "").strip()
-                project_title = (row.get(key_map.get("project_title", ""), "") or "").strip()
+                group_no = str(row.get(key_map.get("group_no", ""), "") or "").strip()
+                project_title = str(row.get(key_map.get("project_title", ""), "") or "").strip()
 
                 student = Student.query.filter_by(seat_no=seat_no).one_or_none()
                 if not student:
@@ -151,7 +185,7 @@ def create_app() -> Flask:
                         total = sum(comp.values())
                         
                     except Exception:
-                        flash("Invalid evaluator marks in CSV.", "error")
+                        flash("Invalid evaluator marks in Excel.", "error")
                         return redirect(request.url)
                         
                 elif "literature_survey" in key_map:
@@ -169,7 +203,7 @@ def create_app() -> Flask:
                         member2_comp = comp.copy()
                         guide_comp = comp.copy()
                     except Exception:
-                        flash("Invalid component values in CSV.", "error")
+                        flash("Invalid component values in Excel.", "error")
                         return redirect(request.url)
                 else:
                     # Total marks only - reverse engineer components
@@ -177,7 +211,7 @@ def create_app() -> Flask:
                         raw_total = float(row.get(key_map["total"], 0))
                         total = int(round(raw_total))
                     except Exception:
-                        flash("Invalid total marks value in CSV.", "error")
+                        flash("Invalid total marks value in Excel.", "error")
                         return redirect(request.url)
 
                     # Normalize totals that are out of 50 (e.g., out of 100)
