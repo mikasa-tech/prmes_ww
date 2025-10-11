@@ -2,10 +2,11 @@ import io
 import os
 import csv
 from pathlib import Path
+from datetime import date
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash
 from models import db, Student, Evaluation
 from utils import reverse_engineer_components, normalize_header, TOTAL_MAX
-from excel_template import build_review1_workbook
+from pdf_template import build_review1_pdf, build_summary_pdf
 from dotenv import load_dotenv
 import sqlalchemy
 from sqlalchemy import text
@@ -394,12 +395,9 @@ def create_app() -> Flask:
     def download_review1(student_id: int):
         student = Student.query.get_or_404(student_id)
         ev = sorted(student.evaluations, key=lambda e: (e.review_no, e.id))[-1]
-        wb = build_review1_workbook(student, ev)
-        bio = io.BytesIO()
-        wb.save(bio)
-        bio.seek(0)
-        filename = f"Review-1_{student.seat_no}_{student.name.replace(' ', '_')}.xlsx"
-        return send_file(bio, as_attachment=True, download_name=filename, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        pdf_buffer = build_review1_pdf(student, ev)
+        filename = f"Review-1_{student.seat_no}_{student.name.replace(' ', '_')}.pdf"
+        return send_file(pdf_buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
 
     @app.route("/students/<int:student_id>/csv")
     def download_review1_csv(student_id: int):
@@ -527,6 +525,24 @@ def create_app() -> Flask:
                         avg_total,
                     ])
         return send_file(export_path, as_attachment=True, download_name="evaluations_review1.csv", mimetype="text/csv")
+    
+    @app.route("/summary.pdf")
+    def download_summary_pdf():
+        students = Student.query.order_by(Student.group_no, Student.name).all()
+        # Get latest evaluation per student (review 1)
+        data = []
+        for s in students:
+            ev = sorted(s.evaluations, key=lambda e: (e.review_no, e.id))[-1] if s.evaluations else None
+            if ev:
+                data.append((s, ev))
+        
+        if not data:
+            flash("No evaluation data found to generate summary.", "error")
+            return redirect(url_for("list_students"))
+        
+        pdf_buffer = build_summary_pdf(data)
+        filename = f"CIE_Review1_Summary_{date.today().strftime('%Y%m%d')}.pdf"
+        return send_file(pdf_buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
 
     return app
 
