@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h3>Students</h3>
+<p><a href="{{ url_for('download_summary_pdf') }}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">Download Summary PDF</a></p>
 <table>
   <thead>
     <tr>
@@ -32,7 +33,7 @@
       <td><strong>{{ ev.total_marks }}</strong></td>
       <td>
         <a href="{{ url_for('student_detail', student_id=s.id) }}">View</a> |
-        <a href="{{ url_for('download_review1', student_id=s.id) }}">Download Excel</a>
+        <a href="{{ url_for('download_review1', student_id=s.id) }}">Download PDF</a>
       </td>
     </tr>
     {% endfor %}
