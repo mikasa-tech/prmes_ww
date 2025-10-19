@@ -6,6 +6,7 @@ class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     group_no = db.Column(db.String(50))
     project_title = db.Column(db.String(255))
+    project_guide = db.Column(db.String(128))
     seat_no = db.Column(db.String(64), nullable=False, index=True)
     name = db.Column(db.String(128), nullable=False)
     evaluations = db.relationship("Evaluation", backref="student", lazy=True, cascade="all, delete-orphan")

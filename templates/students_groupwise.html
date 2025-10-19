@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Students - Group-wise View</h3>
+
+<div class="view-options" style="margin: 15px 0; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+    <strong>View Options:</strong>
+    <a href="{{ url_for('list_students') }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">All Students</a>
+    <span style="margin: 0 10px; padding: 5px 10px; background: #28a745; color: white; border-radius: 3px;">Group-wise</span>
+    <a href="{{ url_for('students_guidewise') }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Guide-wise</a>
+    <a href="{{ url_for('students_individual') }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Individual Detailed</a>
+</div>
+
+{% for group_no, students in groups.items() %}
+<div class="group-section" style="margin: 20px 0; border: 2px solid #ddd; border-radius: 5px; padding: 15px;">
+    <h4 style="background: #007bff; color: white; padding: 10px; margin: -15px -15px 15px -15px; border-radius: 3px 3px 0 0;">
+        Group {{ group_no }} ({{ students|length }} students)
+    </h4>
+    
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f8f9fa;">
+                <th style="border: 1px solid #ddd; padding: 8px;">Seat No</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Name</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Project Title</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Literature (20)</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Problem (10)</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Presentation (10)</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Q&A (10)</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Total (50)</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student, ev in students %}
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">{{ student.seat_no }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">{{ student.name }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">
+                    {% if student.project_title and student.project_title|length > 40 %}
+                        {{ student.project_title[:40] }}...
+                    {% else %}
+                        {{ student.project_title or '-' }}
+                    {% endif %}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ ev.literature_survey }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ ev.problem_identification }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ ev.presentation }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ ev.question_answer }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><strong>{{ ev.total_marks }}</strong></td>
+                <td style="border: 1px solid #ddd; padding: 8px;">
+                    <a href="{{ url_for('student_detail', student_id=student.id) }}" style="color: #007bff;">View</a> |
+                    <a href="{{ url_for('download_review1', student_id=student.id) }}" style="color: #28a745;">PDF</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+</div>
+{% endfor %}
+
+<p style="margin-top: 20px;">
+    <a href="{{ url_for('download_summary_pdf') }}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">
+        Download Comprehensive CIE Review Report (Group-wise + Guide-wise)
+    </a>
+</p>
+
+{% endblock %}

@@ -208,17 +208,17 @@ def build_review1_pdf(student, ev):
     # Perfect column widths for A4 with proper row heights
     col_widths = [12*mm, 18*mm, 35*mm, 62*mm, 20*mm, 18*mm, 20*mm, 20*mm]
     
-    # Set minimum row heights to prevent text overlapping
+    # Set VERY generous row heights to completely prevent text overlapping
     row_heights = [
-        12*mm,  # Header row 1
-        12*mm,  # Header row 2  
-        8*mm,   # Project Guide section header
-        15*mm,  # Literature Survey (taller for student info)
-        10*mm,  # Problem Identification
-        8*mm,   # Committee section header
-        10*mm,  # Presentation
-        10*mm,  # Q&A
-        10*mm   # Total
+        20*mm,  # Header row 1 - much taller
+        20*mm,  # Header row 2 - much taller
+        15*mm,  # Project Guide section header - increased
+        25*mm,  # Literature Survey - MUCH taller for student info
+        18*mm,  # Problem Identification - much increased
+        15*mm,  # Committee section header - increased
+        18*mm,  # Presentation - much increased
+        18*mm,  # Q&A - much increased
+        18*mm   # Total - much increased
     ]
     
     main_table = Table(table_data, colWidths=col_widths, rowHeights=row_heights)
@@ -228,17 +228,17 @@ def build_review1_pdf(student, ev):
         # Overall grid
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         
-        # Font settings - optimized for readability
+        # Font settings - slightly smaller to prevent overlap
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),  # Reduced to prevent text overflow
         
         # Header styling with extra space
         ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 1), 9),
         ('BACKGROUND', (0, 0), (-1, 1), colors.lightgrey),
-        # Extra padding for headers to prevent text cramping
-        ('TOPPADDING', (0, 0), (-1, 1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 1), 10),
+        # EXTRA generous padding for headers to prevent text cramping
+        ('TOPPADDING', (0, 0), (-1, 1), 18),
+        ('BOTTOMPADDING', (0, 0), (-1, 1), 18),
         
         # Section headers styling
         ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),  # Project Guide
@@ -264,11 +264,11 @@ def build_review1_pdf(student, ev):
         ('VALIGN', (0, 3), (2, 6), 'MIDDLE'),  # S.No, Seat No, Name perfectly centered
         ('ALIGN', (0, 3), (2, 6), 'CENTER'),   # Also center horizontally
         
-        # Increased padding to prevent text overlapping on lines
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),   # Increased top padding
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8), # Increased bottom padding
+        # VERY generous padding to completely prevent text touching lines
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),    # Much more left padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),   # Much more right padding
+        ('TOPPADDING', (0, 0), (-1, -1), 15),    # MUCH more top padding
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 15), # MUCH more bottom padding
         
         # Highlight important rows with beautiful colors
         ('BACKGROUND', (0, 2), (-1, 2), colors.lightyellow),  # Project Guide section
@@ -285,6 +285,11 @@ def build_review1_pdf(student, ev):
         
         # Make numeric columns slightly darker for better readability
         ('TEXTCOLOR', (4, 1), (-1, -1), colors.black),
+        
+        # Beautiful formatting for student info region
+        ('FONTNAME', (0, 3), (2, 6), 'Helvetica-Bold'),      # Bold font for student info
+        ('FONTSIZE', (0, 3), (2, 6), 9),                     # Slightly larger font
+        ('TEXTCOLOR', (0, 3), (2, 6), colors.darkblue),      # Professional dark blue text
         
     ]))
     

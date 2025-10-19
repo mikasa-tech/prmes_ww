@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Students</h3>
+<h3>Students - All View</h3>
+
+<div class="view-options" style="margin: 15px 0; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+    <strong>View Options:</strong>
+    <span style="margin: 0 10px; padding: 5px 10px; background: #28a745; color: white; border-radius: 3px;">All Students</span>
+    <a href="{{ url_for('students_groupwise') }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Group-wise</a>
+    <a href="{{ url_for('students_guidewise') }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Guide-wise</a>
+    <a href="{{ url_for('students_individual') }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Individual Detailed</a>
+</div>
+
 <p><a href="{{ url_for('download_summary_pdf') }}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">Download Summary PDF</a></p>
 <table>
   <thead>

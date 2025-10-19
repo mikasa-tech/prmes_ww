@@ -6,7 +6,8 @@ from datetime import date
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash
 from models import db, Student, Evaluation
 from utils import reverse_engineer_components, normalize_header, TOTAL_MAX
-from pdf_template import build_review1_pdf, build_summary_pdf
+from pdf_template import build_review1_pdf
+from comprehensive_pdf_template import build_comprehensive_pdf
 from dotenv import load_dotenv
 import sqlalchemy
 from sqlalchemy import text
@@ -102,6 +103,8 @@ def create_app() -> Flask:
                     key_map["group_no"] = raw
                 elif h in ("project_title", "title"):
                     key_map["project_title"] = raw
+                elif h in ("project_guide",):
+                    key_map["project_guide"] = raw
                 elif h in ("member1", "member_1", "chairperson"):
                     key_map["member1"] = raw
                 elif h in ("member2", "member_2"):
@@ -146,10 +149,11 @@ def create_app() -> Flask:
 
                 group_no = str(row.get(key_map.get("group_no", ""), "") or "").strip()
                 project_title = str(row.get(key_map.get("project_title", ""), "") or "").strip()
+                project_guide = str(row.get(key_map.get("project_guide", ""), "") or "").strip()
 
                 student = Student.query.filter_by(seat_no=seat_no).one_or_none()
                 if not student:
-                    student = Student(name=name, seat_no=seat_no, group_no=group_no, project_title=project_title)
+                    student = Student(name=name, seat_no=seat_no, group_no=group_no, project_title=project_title, project_guide=project_guide)
                     db.session.add(student)
                 else:
                     # update optional meta if provided
@@ -157,6 +161,8 @@ def create_app() -> Flask:
                         student.group_no = group_no
                     if project_title:
                         student.project_title = project_title
+                    if project_guide:
+                        student.project_guide = project_guide
 
                 # Handle different input formats
                 if "member1" in key_map and "member2" in key_map and "internal_guide" in key_map:
@@ -384,6 +390,67 @@ def create_app() -> Flask:
             if ev:
                 data.append((s, ev))
         return render_template("students.html", items=data)
+    
+    @app.route("/students/groupwise")
+    def students_groupwise():
+        # Get all students with their evaluations, grouped by group_no
+        students = Student.query.order_by(Student.group_no, Student.name).all()
+        
+        # Group students by group_no
+        groups = {}
+        for student in students:
+            group_no = student.group_no or "No Group"
+            if group_no not in groups:
+                groups[group_no] = []
+            
+            # Get latest evaluation
+            ev = sorted(student.evaluations, key=lambda e: (e.review_no, e.id))[-1] if student.evaluations else None
+            if ev:
+                groups[group_no].append((student, ev))
+        
+        return render_template("students_groupwise.html", groups=groups)
+    
+    @app.route("/students/guidewise")
+    def students_guidewise():
+        # Get all students with their evaluations, grouped by guide
+        students = Student.query.order_by(Student.name).all()
+        
+        # Group students by their actual project guide from database
+        guides = {}
+        
+        for student in students:
+            ev = sorted(student.evaluations, key=lambda e: (e.review_no, e.id))[-1] if student.evaluations else None
+            if ev and student.project_guide:
+                guide_name = student.project_guide.strip()
+                
+                if guide_name not in guides:
+                    guides[guide_name] = []
+                guides[guide_name].append((student, ev))
+        
+        return render_template("students_guidewise.html", guides=guides)
+    
+    @app.route("/students/individual")
+    def students_individual():
+        # Enhanced individual view with more details
+        students = Student.query.order_by(Student.name).all()
+        data = []
+        for s in students:
+            ev = sorted(s.evaluations, key=lambda e: (e.review_no, e.id))[-1] if s.evaluations else None
+            if ev:
+                # Add more detailed individual data
+                individual_data = {
+                    'student': s,
+                    'evaluation': ev,
+                    'member1_total': (ev.member1_literature or 0) + (ev.member1_problem or 0) + 
+                                   (ev.member1_presentation or 0) + (ev.member1_qa or 0),
+                    'member2_total': (ev.member2_literature or 0) + (ev.member2_problem or 0) + 
+                                   (ev.member2_presentation or 0) + (ev.member2_qa or 0),
+                    'guide_total': (ev.guide_literature or 0) + (ev.guide_problem or 0) + 
+                                  (ev.guide_presentation or 0) + (ev.guide_qa or 0),
+                }
+                data.append(individual_data)
+        
+        return render_template("students_individual.html", students_data=data)
 
     @app.route("/students/<int:student_id>")
     def student_detail(student_id: int):
@@ -528,20 +595,33 @@ def create_app() -> Flask:
     
     @app.route("/summary.pdf")
     def download_summary_pdf():
-        students = Student.query.order_by(Student.group_no, Student.name).all()
-        # Get latest evaluation per student (review 1)
-        data = []
-        for s in students:
-            ev = sorted(s.evaluations, key=lambda e: (e.review_no, e.id))[-1] if s.evaluations else None
-            if ev:
-                data.append((s, ev))
+        # Get guide-wise data
+        students = Student.query.order_by(Student.name).all()
+        guides = {}
+        for student in students:
+            ev = sorted(student.evaluations, key=lambda e: (e.review_no, e.id))[-1] if student.evaluations else None
+            if ev and student.project_guide:
+                guide_name = student.project_guide.strip()
+                if guide_name not in guides:
+                    guides[guide_name] = []
+                guides[guide_name].append((student, ev))
         
-        if not data:
+        # Get group-wise data
+        groups = {}
+        for student in students:
+            group_no = student.group_no or "No Group"
+            if group_no not in groups:
+                groups[group_no] = []
+            ev = sorted(student.evaluations, key=lambda e: (e.review_no, e.id))[-1] if student.evaluations else None
+            if ev:
+                groups[group_no].append((student, ev))
+        
+        if not guides and not groups:
             flash("No evaluation data found to generate summary.", "error")
             return redirect(url_for("list_students"))
         
-        pdf_buffer = build_summary_pdf(data)
-        filename = f"CIE_Review1_Summary_{date.today().strftime('%Y%m%d')}.pdf"
+        pdf_buffer = build_comprehensive_pdf(guides, groups)
+        filename = f"CIE_Review1_Comprehensive_Report_{date.today().strftime('%Y%m%d')}.pdf"
         return send_file(pdf_buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
 
     return app

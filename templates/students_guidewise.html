@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Students - Guide-wise View</h3>
+
+<div class="view-options" style="margin: 15px 0; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+    <strong>View Options:</strong>
+    <a href="{{ url_for('list_students') }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">All Students</a>
+    <a href="{{ url_for('students_groupwise') }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Group-wise</a>
+    <span style="margin: 0 10px; padding: 5px 10px; background: #28a745; color: white; border-radius: 3px;">Guide-wise</span>
+    <a href="{{ url_for('students_individual') }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Individual Detailed</a>
+</div>
+
+{% for guide_name, students in guides.items() %}
+<div class="guide-section" style="margin: 20px 0; border: 2px solid #ddd; border-radius: 5px; padding: 15px;">
+    <h4 style="background: #17a2b8; color: white; padding: 10px; margin: -15px -15px 15px -15px; border-radius: 3px 3px 0 0;">
+        {{ guide_name }} ({{ students|length }} students)
+    </h4>
+    
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f8f9fa;">
+                <th style="border: 1px solid #ddd; padding: 8px;">Group</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Seat No</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Name</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Project Title</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Guide Marks</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Member1 Marks</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Member2 Marks</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Total Score</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student, ev in students %}
+            {% set guide_total = (ev.guide_literature or 0) + (ev.guide_problem or 0) + (ev.guide_presentation or 0) + (ev.guide_qa or 0) %}
+            {% set member1_total = (ev.member1_literature or 0) + (ev.member1_problem or 0) + (ev.member1_presentation or 0) + (ev.member1_qa or 0) %}
+            {% set member2_total = (ev.member2_literature or 0) + (ev.member2_problem or 0) + (ev.member2_presentation or 0) + (ev.member2_qa or 0) %}
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">{{ student.group_no or '-' }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">{{ student.seat_no }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">{{ student.name }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">
+                    {% if student.project_title and student.project_title|length > 35 %}
+                        {{ student.project_title[:35] }}...
+                    {% else %}
+                        {{ student.project_title or '-' }}
+                    {% endif %}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #e8f5e8;">
+                    <strong>{{ guide_total }}/50</strong>
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ member1_total }}/50</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ member2_total }}/50</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><strong>{{ ev.total_marks }}/50</strong></td>
+                <td style="border: 1px solid #ddd; padding: 8px;">
+                    <a href="{{ url_for('student_detail', student_id=student.id) }}" style="color: #007bff;">View</a> |
+                    <a href="{{ url_for('download_review1', student_id=student.id) }}" style="color: #28a745;">PDF</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+</div>
+{% endfor %}
+
+<p style="margin-top: 20px;">
+    <a href="{{ url_for('download_summary_pdf') }}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">
+        Download Comprehensive CIE Review Report (Guide-wise + Group-wise)
+    </a>
+</p>
+
+{% endblock %}
