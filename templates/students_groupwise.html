@@ -2,12 +2,32 @@
 {% block content %}
 <h3>Students - Group-wise View</h3>
 
+<!-- Phase and Review Selection -->
+<div class="phase-review-selector" style="margin: 15px 0; padding: 15px; background: #e8f4f8; border-radius: 5px; border: 2px solid #007bff;">
+    <strong style="font-size: 16px;">Select Phase & Review:</strong>
+    <div style="margin-top: 10px;">
+        <div style="display: inline-block; margin-right: 20px;">
+            <strong>Phase 1:</strong>
+            <a href="{{ url_for('students_groupwise', phase=1, review=1) }}" style="margin: 0 5px; padding: 8px 15px; background: {% if phase == 1 and review == 1 %}#28a745{% else %}#6c757d{% endif %}; color: white; text-decoration: none; border-radius: 3px;">Review 1</a>
+            <a href="{{ url_for('students_groupwise', phase=1, review=2) }}" style="margin: 0 5px; padding: 8px 15px; background: {% if phase == 1 and review == 2 %}#28a745{% else %}#6c757d{% endif %}; color: white; text-decoration: none; border-radius: 3px;">Review 2</a>
+        </div>
+        <div style="display: inline-block;">
+            <strong>Phase 2:</strong>
+            <a href="{{ url_for('students_groupwise', phase=2, review=1) }}" style="margin: 0 5px; padding: 8px 15px; background: {% if phase == 2 and review == 1 %}#28a745{% else %}#6c757d{% endif %}; color: white; text-decoration: none; border-radius: 3px;">Review 1</a>
+            <a href="{{ url_for('students_groupwise', phase=2, review=2) }}" style="margin: 0 5px; padding: 8px 15px; background: {% if phase == 2 and review == 2 %}#28a745{% else %}#6c757d{% endif %}; color: white; text-decoration: none; border-radius: 3px;">Review 2</a>
+        </div>
+    </div>
+    <div style="margin-top: 10px; font-size: 14px; color: #555;">
+        <em>Currently viewing: Phase {{ phase }} Review {{ review }}</em>
+    </div>
+</div>
+
 <div class="view-options" style="margin: 15px 0; padding: 10px; background: #f5f5f5; border-radius: 5px;">
     <strong>View Options:</strong>
-    <a href="{{ url_for('list_students') }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">All Students</a>
+    <a href="{{ url_for('list_students', phase=phase, review=review) }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">All Students</a>
     <span style="margin: 0 10px; padding: 5px 10px; background: #28a745; color: white; border-radius: 3px;">Group-wise</span>
-    <a href="{{ url_for('students_guidewise') }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Guide-wise</a>
-    <a href="{{ url_for('students_individual') }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Individual Detailed</a>
+    <a href="{{ url_for('students_guidewise', phase=phase, review=review) }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Guide-wise</a>
+    <a href="{{ url_for('students_individual', phase=phase, review=review) }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Individual Detailed</a>
 </div>
 
 {% for group_no, students in groups.items() %}
@@ -22,10 +42,16 @@
                 <th style="border: 1px solid #ddd; padding: 8px;">Seat No</th>
                 <th style="border: 1px solid #ddd; padding: 8px;">Name</th>
                 <th style="border: 1px solid #ddd; padding: 8px;">Project Title</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Literature (20)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Problem (10)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Presentation (10)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Q&A (10)</th>
+                {% if config %}
+                {% for criterion in config.criteria %}
+                <th style="border: 1px solid #ddd; padding: 8px;">{{ criterion.name }} ({{ criterion.max_marks }})</th>
+                {% endfor %}
+                {% else %}
+                <th style="border: 1px solid #ddd; padding: 8px;">C1</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">C2</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">C3</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">C4</th>
+                {% endif %}
                 <th style="border: 1px solid #ddd; padding: 8px;">Total (50)</th>
                 <th style="border: 1px solid #ddd; padding: 8px;">Actions</th>
             </tr>
@@ -42,14 +68,14 @@
                         {{ student.project_title or '-' }}
                     {% endif %}
                 </td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ ev.literature_survey }}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ ev.problem_identification }}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ ev.presentation }}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ ev.question_answer }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ ev.criteria1 }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ ev.criteria2 }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ ev.criteria3 }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ ev.criteria4 }}</td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><strong>{{ ev.total_marks }}</strong></td>
                 <td style="border: 1px solid #ddd; padding: 8px;">
-                    <a href="{{ url_for('student_detail', student_id=student.id) }}" style="color: #007bff;">View</a> |
-                    <a href="{{ url_for('download_review1', student_id=student.id) }}" style="color: #28a745;">PDF</a>
+                    <a href="{{ url_for('student_detail', student_id=student.id, phase=phase, review=review) }}" style="color: #007bff;">View</a> |
+                    <a href="{{ url_for('download_review1', student_id=student.id, phase=phase, review=review) }}" style="color: #28a745;">PDF</a>
                 </td>
             </tr>
             {% endfor %}
@@ -60,7 +86,7 @@
 {% endfor %}
 
 <p style="margin-top: 20px;">
-    <a href="{{ url_for('download_summary_pdf') }}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">
+    <a href="{{ url_for('download_summary_pdf', phase=phase, review=review) }}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">
         Download Comprehensive CIE Review Report (Group-wise + Guide-wise)
     </a>
 </p>

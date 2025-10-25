@@ -7,6 +7,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from datetime import date
 import io
 import os
+from review_config import get_review_config
 
 def get_college_logo():
     """Get the college logo image"""
@@ -17,9 +18,15 @@ def get_college_logo():
         # Create a simple placeholder
         return Paragraph("<b>LOGO</b>", ParagraphStyle('Logo', fontSize=8, alignment=TA_CENTER))
 
-def build_review1_pdf(student, ev):
+def build_review1_pdf(student, ev, phase=None, review=None):
     """
     Build a perfectly formatted PDF matching the exact document layout
+    
+    Args:
+        student: Student object
+        ev: Evaluation object
+        phase: Phase number (optional, uses ev.phase if not provided)
+        review: Review number (optional, uses ev.review_no if not provided)
     """
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -106,10 +113,13 @@ def build_review1_pdf(student, ev):
     elements.append(academic_table)
     elements.append(Spacer(1, 8))
     
-    # Main section titles
-    elements.append(Paragraph("FINAL YEAR STUDENTS MAJOR PROJECT WORK PHASE - I", section_style))
-    elements.append(Paragraph("CONTINUOUS INTERNAL EVALUATION (CIE) OF MAJOR PROJECT WORK PHASE - I", section_style))
-    elements.append(Paragraph("REVIEW - I", section_style))
+    # Main section titles - dynamic phase and review
+    phase_roman = "I" if ev.phase == 1 else "II"
+    review_roman = "I" if ev.review_no == 1 else "II"
+    
+    elements.append(Paragraph(f"FINAL YEAR STUDENTS MAJOR PROJECT WORK PHASE - {phase_roman}", section_style))
+    elements.append(Paragraph(f"CONTINUOUS INTERNAL EVALUATION (CIE) OF MAJOR PROJECT WORK PHASE - {phase_roman}", section_style))
+    elements.append(Paragraph(f"REVIEW - {review_roman}", section_style))
     elements.append(Spacer(1, 12))
     
     # Group and project info with manual-style title wrapping
@@ -139,32 +149,24 @@ def build_review1_pdf(student, ev):
     elements.append(project_info)
     elements.append(Spacer(1, 12))  # Increased spacing to prevent overlap
     
-    # Calculate individual marks and averages correctly - ALWAYS show marks
-    lit_m1 = int(ev.member1_literature or 0)
-    lit_m2 = int(ev.member2_literature or 0) 
-    lit_guide = int(ev.guide_literature or 0)
-    lit_avg = int(round((lit_m1 + lit_m2 + lit_guide) / 3)) if (lit_m1 + lit_m2 + lit_guide) > 0 else 0
+    # Get configuration for this phase/review
+    config = get_review_config(ev.phase, ev.review_no)
+    if not config:
+        # Fallback if config not found
+        config = get_review_config(1, 1)
     
-    prob_m1 = int(ev.member1_problem or 0)
-    prob_m2 = int(ev.member2_problem or 0)
-    prob_guide = int(ev.guide_problem or 0)
-    prob_avg = int(round((prob_m1 + prob_m2 + prob_guide) / 3)) if (prob_m1 + prob_m2 + prob_guide) > 0 else 0
+    # Calculate marks dynamically based on criteria
+    criteria_marks = []
+    for i in range(1, 5):  # criteria1 to criteria4
+        m1 = int(getattr(ev, f'member1_criteria{i}', 0) or 0)
+        m2 = int(getattr(ev, f'member2_criteria{i}', 0) or 0)
+        m_guide = int(getattr(ev, f'guide_criteria{i}', 0) or 0)
+        avg = int(round((m1 + m2 + m_guide) / 3)) if (m1 + m2 + m_guide) > 0 else 0
+        criteria_marks.append({'m1': m1, 'm2': m2, 'guide': m_guide, 'avg': avg})
     
-    pres_m1 = int(ev.member1_presentation or 0)
-    pres_m2 = int(ev.member2_presentation or 0)
-    pres_guide = int(ev.guide_presentation or 0)
-    pres_avg = int(round((pres_m1 + pres_m2 + pres_guide) / 3)) if (pres_m1 + pres_m2 + pres_guide) > 0 else 0
+    total_marks = sum(c['avg'] for c in criteria_marks)
     
-    qa_m1 = int(ev.member1_qa or 0)
-    qa_m2 = int(ev.member2_qa or 0)
-    qa_guide = int(ev.guide_qa or 0)
-    qa_avg = int(round((qa_m1 + qa_m2 + qa_guide) / 3)) if (qa_m1 + qa_m2 + qa_guide) > 0 else 0
-    
-    # All marks calculated and ready for display
-    
-    total_marks = lit_avg + prob_avg + pres_avg + qa_avg
-    
-    # Create the main evaluation table with exact structure
+    # Create the main evaluation table with dynamic criteria
     table_data = [
         # Header row with CIE span
         ['', '', '', '', 'Continuous Internal Evaluation (CIE)\nby', '', '', 'Average CIE\nMarks\n(50 Marks)'],
@@ -173,37 +175,43 @@ def build_review1_pdf(student, ev):
         ['Sl.\nNo.', 'Univ.\nSeat No.', 'Name of the\nStudent', 'Aspect for Assessment', 
          'Chairperson\n(Member-1)\nMarks', 'Member-2\nMarks', 'Internal\nGuide\nMarks', ''],
         
-        # Project Guide section
-        ['', '', '', 'Marks allotted by Project Guide', '', '', '', ''],
-        
-        # Literature Survey with student info - ALL evaluator marks
-        ['1', student.seat_no, student.name, '(a) Literature Survey (20 Marks)', 
-         str(lit_m1) if lit_m1 > 0 else 'NA', 
-         str(lit_m2) if lit_m2 > 0 else '', 
-         str(lit_guide) if lit_guide > 0 else '', 
-         str(lit_avg)],
-        
-        # Problem Identification - ALL evaluator marks
-        ['', '', '', '(b) Problem Identification (10 Marks)', 
-         str(prob_m1) if prob_m1 > 0 else 'NA', 
-         str(prob_m2) if prob_m2 > 0 else '', 
-         str(prob_guide) if prob_guide > 0 else '', 
-         str(prob_avg)],
-        
-        # Committee section header
-        ['', '', '', 'Marks allotted by Committee', '', '', '', ''],
-        
-        # Presentation - ALL evaluator marks displayed
-        ['', '', '', '(c) Project presentation skill (10 Marks)', 
-         str(pres_m1), str(pres_m2), str(pres_guide), str(pres_avg)],
-        
-        # Q&A - ALL evaluator marks displayed
-        ['', '', '', '(d) Question and answer session (10 Marks)', 
-         str(qa_m1), str(qa_m2), str(qa_guide), str(qa_avg)],
-        
-        # Total row
-        ['', '', '', 'Total Marks (50 Marks)', '', '', '', str(total_marks)],
+        # Project Guide section header
+        ['', '', '', config.get('guide_section_label', 'Marks allotted by Project Guide'), '', '', '', ''],
     ]
+    
+    # Add first two criteria (guide marks) with student info on first row
+    for idx, criterion in enumerate(config['criteria'][:2], 1):
+        marks = criteria_marks[idx-1]
+        row = [
+            '1' if idx == 1 else '',
+            student.seat_no if idx == 1 else '',
+            student.name if idx == 1 else '',
+            f"({chr(96+idx)}) {criterion['name']} ({criterion['max_marks']} Marks)",
+            str(marks['m1']) if marks['m1'] > 0 else 'NA',
+            str(marks['m2']) if marks['m2'] > 0 else '',
+            str(marks['guide']) if marks['guide'] > 0 else '',
+            str(marks['avg'])
+        ]
+        table_data.append(row)
+    
+    # Committee section header
+    table_data.append(['', '', '', config.get('committee_section_label', 'Marks allotted by Committee'), '', '', '', ''])
+    
+    # Add last two criteria (committee marks)
+    for idx, criterion in enumerate(config['criteria'][2:], 3):
+        marks = criteria_marks[idx-1]
+        row = [
+            '', '', '',
+            f"({chr(96+idx)}) {criterion['name']} ({criterion['max_marks']} Marks)",
+            str(marks['m1']),
+            str(marks['m2']),
+            str(marks['guide']),
+            str(marks['avg'])
+        ]
+        table_data.append(row)
+    
+    # Total row
+    table_data.append(['', '', '', 'Total Marks (50 Marks)', '', '', '', str(total_marks)])
     
     # Perfect column widths for A4 with proper row heights
     col_widths = [12*mm, 18*mm, 35*mm, 62*mm, 20*mm, 18*mm, 20*mm, 20*mm]

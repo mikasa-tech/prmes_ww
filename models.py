@@ -13,26 +13,33 @@ class Student(db.Model):
 
 class Evaluation(db.Model):
     __table_args__ = (
-        db.UniqueConstraint('student_id', 'review_no', name='uq_eval_student_review'),
+        db.UniqueConstraint('student_id', 'phase', 'review_no', name='uq_eval_student_phase_review'),
     )
     id = db.Column(db.Integer, primary_key=True)
-    review_no = db.Column(db.Integer, default=1, nullable=False)
+    phase = db.Column(db.Integer, default=1, nullable=False)  # 1 or 2
+    review_no = db.Column(db.Integer, default=1, nullable=False)  # 1 or 2
     total_marks = db.Column(db.Integer, nullable=False)
-    literature_survey = db.Column(db.Integer, nullable=False)
-    problem_identification = db.Column(db.Integer, nullable=False)
-    presentation = db.Column(db.Integer, nullable=False)
-    question_answer = db.Column(db.Integer, nullable=False)
-    # Individual evaluator marks
-    member1_literature = db.Column(db.Integer, nullable=True)
-    member1_problem = db.Column(db.Integer, nullable=True)
-    member1_presentation = db.Column(db.Integer, nullable=True)
-    member1_qa = db.Column(db.Integer, nullable=True)
-    member2_literature = db.Column(db.Integer, nullable=True)
-    member2_problem = db.Column(db.Integer, nullable=True)
-    member2_presentation = db.Column(db.Integer, nullable=True)
-    member2_qa = db.Column(db.Integer, nullable=True)
-    guide_literature = db.Column(db.Integer, nullable=True)
-    guide_problem = db.Column(db.Integer, nullable=True)
-    guide_presentation = db.Column(db.Integer, nullable=True)
-    guide_qa = db.Column(db.Integer, nullable=True)
+    
+    # Generic criteria columns (meaning changes based on phase/review)
+    criteria1 = db.Column(db.Integer, nullable=False)  # P1R1: Lit Survey(20), P1R2: Objectives(10), P2: Prelim(15)
+    criteria2 = db.Column(db.Integer, nullable=False)  # P1R1: Problem(10), P1R2: Methodology(10), P2: Execution(15)
+    criteria3 = db.Column(db.Integer, nullable=False)  # All: Presentation (10/15)
+    criteria4 = db.Column(db.Integer, nullable=False)  # All: Q&A (10/15)
+    
+    # Individual evaluator marks for each criterion
+    member1_criteria1 = db.Column(db.Integer, nullable=True)
+    member1_criteria2 = db.Column(db.Integer, nullable=True)
+    member1_criteria3 = db.Column(db.Integer, nullable=True)
+    member1_criteria4 = db.Column(db.Integer, nullable=True)
+    
+    member2_criteria1 = db.Column(db.Integer, nullable=True)
+    member2_criteria2 = db.Column(db.Integer, nullable=True)
+    member2_criteria3 = db.Column(db.Integer, nullable=True)
+    member2_criteria4 = db.Column(db.Integer, nullable=True)
+    
+    guide_criteria1 = db.Column(db.Integer, nullable=True)
+    guide_criteria2 = db.Column(db.Integer, nullable=True)
+    guide_criteria3 = db.Column(db.Integer, nullable=True)
+    guide_criteria4 = db.Column(db.Integer, nullable=True)
+    
     student_id = db.Column(db.Integer, db.ForeignKey("student.id"), nullable=False)

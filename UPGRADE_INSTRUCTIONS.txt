@@ -1,0 +1,60 @@
+========================================
+PRMES Multi-Phase Review System Upgrade
+========================================
+
+IMPORTANT: If you have existing data, follow these steps!
+
+STEP 1: Backup Your Database (Optional but Recommended)
+--------------------------------------------------------
+Copy your app.db file to a safe location:
+  copy app.db app.db.backup
+
+STEP 2: Run Database Migration
+-------------------------------
+  python migrate_db.py
+
+This will add the 'phase' column to your existing database.
+All existing evaluations will be set to Phase 1.
+
+STEP 3: Start the Application
+------------------------------
+  python app.py
+
+STEP 4: Test the System
+------------------------
+1. Navigate to http://127.0.0.1:5000
+2. You should see the phase/review selector on the student list page
+3. Try uploading a test file to Phase 1 Review 2
+4. Switch between different phase/review combinations
+
+========================================
+New Features
+========================================
+
+✅ Support for 4 review combinations:
+   - Phase 1 Review 1
+   - Phase 1 Review 2
+   - Phase 2 Review 1
+   - Phase 2 Review 2
+
+✅ Easy phase/review selection during upload
+
+✅ Visual selector to switch between phases/reviews
+
+✅ PDFs automatically show correct phase and review numbers
+
+✅ Independent data management for each phase/review
+
+========================================
+Quick Reference
+========================================
+
+Upload: Select phase/review → Choose Excel file → Upload
+View:   Use phase/review selector at top of any student list
+PDF:    Shows phase and review from the evaluation record
+
+========================================
+Need Help?
+========================================
+
+Check MULTI_REVIEW_GUIDE.md for detailed documentation

@@ -8,6 +8,8 @@ from models import db, Student, Evaluation
 from utils import reverse_engineer_components, normalize_header, TOTAL_MAX
 from pdf_template import build_review1_pdf
 from comprehensive_pdf_template import build_comprehensive_pdf
+from upload_helpers import map_excel_columns_to_criteria
+from review_config import get_review_config
 from dotenv import load_dotenv
 import sqlalchemy
 from sqlalchemy import text
@@ -56,6 +58,18 @@ def create_app() -> Flask:
     @app.route("/upload", methods=["GET", "POST"])
     def upload_csv():
         if request.method == "POST":
+            # Get phase and review from form
+            try:
+                phase = int(request.form.get("phase", 1))
+                review_no = int(request.form.get("review", 1))
+            except (ValueError, TypeError):
+                flash("Invalid phase or review number.", "error")
+                return redirect(request.url)
+            
+            if phase not in [1, 2] or review_no not in [1, 2]:
+                flash("Phase and Review must be 1 or 2.", "error")
+                return redirect(request.url)
+            
             file = request.files.get("file")
             if not file or file.filename.strip() == "":
                 flash("Please choose an .xlsx file.", "error")
@@ -129,15 +143,13 @@ def create_app() -> Flask:
                 flash(f"Excel file missing required columns: {', '.join(missing)}", "error")
                 return redirect(request.url)
 
-            # Replace all existing data before importing new Excel (no UI toggle)
+            # Delete existing evaluations for this specific phase and review only
             try:
-                # Delete in FK-safe order
-                db.session.execute(text("DELETE FROM evaluation"))
-                db.session.execute(text("DELETE FROM student"))
+                db.session.execute(text(f"DELETE FROM evaluation WHERE phase = {phase} AND review_no = {review_no}"))
                 db.session.commit()
             except Exception:
                 db.session.rollback()
-                flash("Failed to reset existing data before import.", "error")
+                flash(f"Failed to delete existing Phase {phase} Review {review_no} data before import.", "error")
                 return redirect(request.url)
 
             created = 0
@@ -164,124 +176,59 @@ def create_app() -> Flask:
                     if project_guide:
                         student.project_guide = project_guide
 
-                # Handle different input formats
-                if "member1" in key_map and "member2" in key_map and "internal_guide" in key_map:
-                    # Three evaluator format - use their marks directly
-                    try:
-                        member1_total = int(float(row.get(key_map["member1"], 0)))
-                        member2_total = int(float(row.get(key_map["member2"], 0)))
-                        guide_total = int(float(row.get(key_map["internal_guide"], 0)))
-                        
-                        # Calculate average of three evaluators
-                        total = int(round((member1_total + member2_total + guide_total) / 3))
-                        
-                        # Distribute each evaluator's total across components proportionally
-                        member1_comp = reverse_engineer_components(member1_total)
-                        member2_comp = reverse_engineer_components(member2_total)
-                        guide_comp = reverse_engineer_components(guide_total)
-                        
-                        # Calculate average components from the three evaluators
-                        comp = {
-                            "literature_survey": int(round((member1_comp["literature_survey"] + member2_comp["literature_survey"] + guide_comp["literature_survey"]) / 3)),
-                            "problem_identification": int(round((member1_comp["problem_identification"] + member2_comp["problem_identification"] + guide_comp["problem_identification"]) / 3)),
-                            "presentation": int(round((member1_comp["presentation"] + member2_comp["presentation"] + guide_comp["presentation"]) / 3)),
-                            "question_answer": int(round((member1_comp["question_answer"] + member2_comp["question_answer"] + guide_comp["question_answer"]) / 3)),
-                        }
-                        
-                        # Ensure total matches the calculated components
-                        total = sum(comp.values())
-                        
-                    except Exception:
-                        flash("Invalid evaluator marks in Excel.", "error")
-                        return redirect(request.url)
-                        
-                elif "literature_survey" in key_map:
-                    # Component marks provided directly
-                    try:
-                        comp = {
-                            "literature_survey": int(float(row.get(key_map["literature_survey"], 0))),
-                            "problem_identification": int(float(row.get(key_map["problem_identification"], 0))),
-                            "presentation": int(float(row.get(key_map["presentation"], 0))),
-                            "question_answer": int(float(row.get(key_map["question_answer"], 0))),
-                        }
-                        total = sum(comp.values())
-                        # Use same marks for all evaluators
-                        member1_comp = comp.copy()
-                        member2_comp = comp.copy()
-                        guide_comp = comp.copy()
-                    except Exception:
-                        flash("Invalid component values in Excel.", "error")
-                        return redirect(request.url)
-                else:
-                    # Total marks only - reverse engineer components
-                    try:
-                        raw_total = float(row.get(key_map["total"], 0))
-                        total = int(round(raw_total))
-                    except Exception:
-                        flash("Invalid total marks value in Excel.", "error")
-                        return redirect(request.url)
-
-                    # Normalize totals that are out of 50 (e.g., out of 100)
-                    if total > TOTAL_MAX:
-                        if total <= 100:
-                            # Scale percentage-like totals to the 50 mark scheme
-                            scaled = int(round((raw_total / 100.0) * TOTAL_MAX))
-                            total_for_components = max(0, min(scaled, TOTAL_MAX))
-                        else:
-                            # Clamp unexpected larger values
-                            total_for_components = TOTAL_MAX
-                    else:
-                        total_for_components = total
-
-                    comp = reverse_engineer_components(total_for_components)
-                    # Use same marks for all evaluators
-                    member1_comp = comp.copy()
-                    member2_comp = comp.copy()
-                    guide_comp = comp.copy()
+                # Use dynamic column mapping based on phase/review
+                try:
+                    comp, member1_comp, member2_comp, guide_comp = map_excel_columns_to_criteria(
+                        row, key_map, phase, review_no
+                    )
                     total = sum(comp.values())
+                except Exception as e:
+                    flash(f"Error processing row for {name}: {str(e)}", "error")
+                    continue
 
-                # Upsert: one evaluation per student per review
-                existing = Evaluation.query.filter_by(student=student, review_no=1).one_or_none()
+                # Upsert: one evaluation per student per phase per review
+                existing = Evaluation.query.filter_by(student=student, phase=phase, review_no=review_no).one_or_none()
                 if existing:
+                    existing.phase = phase
                     existing.total_marks = total
-                    existing.literature_survey = comp["literature_survey"]
-                    existing.problem_identification = comp["problem_identification"]
-                    existing.presentation = comp["presentation"]
-                    existing.question_answer = comp["question_answer"]
-                    existing.member1_literature = member1_comp["literature_survey"]
-                    existing.member1_problem = member1_comp["problem_identification"]
-                    existing.member1_presentation = member1_comp["presentation"]
-                    existing.member1_qa = member1_comp["question_answer"]
-                    existing.member2_literature = member2_comp["literature_survey"]
-                    existing.member2_problem = member2_comp["problem_identification"]
-                    existing.member2_presentation = member2_comp["presentation"]
-                    existing.member2_qa = member2_comp["question_answer"]
-                    existing.guide_literature = guide_comp["literature_survey"]
-                    existing.guide_problem = guide_comp["problem_identification"]
-                    existing.guide_presentation = guide_comp["presentation"]
-                    existing.guide_qa = guide_comp["question_answer"]
+                    existing.criteria1 = comp["criteria1"]
+                    existing.criteria2 = comp["criteria2"]
+                    existing.criteria3 = comp["criteria3"]
+                    existing.criteria4 = comp["criteria4"]
+                    existing.member1_criteria1 = member1_comp["criteria1"]
+                    existing.member1_criteria2 = member1_comp["criteria2"]
+                    existing.member1_criteria3 = member1_comp["criteria3"]
+                    existing.member1_criteria4 = member1_comp["criteria4"]
+                    existing.member2_criteria1 = member2_comp["criteria1"]
+                    existing.member2_criteria2 = member2_comp["criteria2"]
+                    existing.member2_criteria3 = member2_comp["criteria3"]
+                    existing.member2_criteria4 = member2_comp["criteria4"]
+                    existing.guide_criteria1 = guide_comp["criteria1"]
+                    existing.guide_criteria2 = guide_comp["criteria2"]
+                    existing.guide_criteria3 = guide_comp["criteria3"]
+                    existing.guide_criteria4 = guide_comp["criteria4"]
                 else:
                     evaluation = Evaluation(
-                        review_no=1,
+                        phase=phase,
+                        review_no=review_no,
                         total_marks=total,
-                        literature_survey=comp["literature_survey"],
-                        problem_identification=comp["problem_identification"],
-                        presentation=comp["presentation"],
-                        question_answer=comp["question_answer"],
+                        criteria1=comp["criteria1"],
+                        criteria2=comp["criteria2"],
+                        criteria3=comp["criteria3"],
+                        criteria4=comp["criteria4"],
                         # Individual evaluator marks
-                        member1_literature=member1_comp["literature_survey"],
-                        member1_problem=member1_comp["problem_identification"],
-                        member1_presentation=member1_comp["presentation"],
-                        member1_qa=member1_comp["question_answer"]
-                        ,
-                        member2_literature=member2_comp["literature_survey"],
-                        member2_problem=member2_comp["problem_identification"],
-                        member2_presentation=member2_comp["presentation"],
-                        member2_qa=member2_comp["question_answer"],
-                        guide_literature=guide_comp["literature_survey"],
-                        guide_problem=guide_comp["problem_identification"],
-                        guide_presentation=guide_comp["presentation"],
-                        guide_qa=guide_comp["question_answer"],
+                        member1_criteria1=member1_comp["criteria1"],
+                        member1_criteria2=member1_comp["criteria2"],
+                        member1_criteria3=member1_comp["criteria3"],
+                        member1_criteria4=member1_comp["criteria4"],
+                        member2_criteria1=member2_comp["criteria1"],
+                        member2_criteria2=member2_comp["criteria2"],
+                        member2_criteria3=member2_comp["criteria3"],
+                        member2_criteria4=member2_comp["criteria4"],
+                        guide_criteria1=guide_comp["criteria1"],
+                        guide_criteria2=guide_comp["criteria2"],
+                        guide_criteria3=guide_comp["criteria3"],
+                        guide_criteria4=guide_comp["criteria4"],
                         student=student,
                     )
                     db.session.add(evaluation)
@@ -289,110 +236,41 @@ def create_app() -> Flask:
 
             db.session.commit()
 
-            # Ensure exports directory exists
-            EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-
-            # Auto-export latest evaluations with component marks to CSV
-            export_path = EXPORTS_DIR / "evaluations_review1.csv"
-            with export_path.open("w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow([
-                    "group_no",
-                    "project_title",
-                    "seat_no",
-                    "name",
-                    "review_no",
-                    "member1_literature",
-                    "member1_problem",
-                    "member1_presentation",
-                    "member1_qa",
-                    "member1_total",
-                    "member2_literature",
-                    "member2_problem",
-                    "member2_presentation",
-                    "member2_qa",
-                    "member2_total",
-                    "guide_literature",
-                    "guide_problem",
-                    "guide_presentation",
-                    "guide_qa",
-                    "guide_total",
-                    "avg_literature",
-                    "avg_problem",
-                    "avg_presentation",
-                    "avg_qa",
-                    "avg_total_marks",
-                ])
-                # For each student, pick latest evaluation (review 1) and write row
-                students = Student.query.order_by(Student.group_no, Student.name).all()
-                for s in students:
-                    ev = sorted(s.evaluations, key=lambda e: (e.review_no, e.id))[-1] if s.evaluations else None
-                    if not ev:
-                        continue
-                    
-                    # Calculate individual evaluator totals
-                    member1_total = (ev.member1_literature or 0) + (ev.member1_problem or 0) + (ev.member1_presentation or 0) + (ev.member1_qa or 0)
-                    member2_total = (ev.member2_literature or 0) + (ev.member2_problem or 0) + (ev.member2_presentation or 0) + (ev.member2_qa or 0)
-                    guide_total = (ev.guide_literature or 0) + (ev.guide_problem or 0) + (ev.guide_presentation or 0) + (ev.guide_qa or 0)
-                    
-                    # Calculate averages
-                    avg_literature = int(round(((ev.member1_literature or 0) + (ev.member2_literature or 0) + (ev.guide_literature or 0)) / 3))
-                    avg_problem = int(round(((ev.member1_problem or 0) + (ev.member2_problem or 0) + (ev.guide_problem or 0)) / 3))
-                    avg_presentation = int(round(((ev.member1_presentation or 0) + (ev.member2_presentation or 0) + (ev.guide_presentation or 0)) / 3))
-                    avg_qa = int(round(((ev.member1_qa or 0) + (ev.member2_qa or 0) + (ev.guide_qa or 0)) / 3))
-                    avg_total = avg_literature + avg_problem + avg_presentation + avg_qa
-                    
-                    writer.writerow([
-                        s.group_no or "",
-                        s.project_title or "",
-                        s.seat_no,
-                        s.name,
-                        ev.review_no,
-                        # Member 1 marks
-                        ev.member1_literature or 0,
-                        ev.member1_problem or 0,
-                        ev.member1_presentation or 0,
-                        ev.member1_qa or 0,
-                        member1_total,
-                        # Member 2 marks
-                        ev.member2_literature or 0,
-                        ev.member2_problem or 0,
-                        ev.member2_presentation or 0,
-                        ev.member2_qa or 0,
-                        member2_total,
-                        # Guide marks
-                        ev.guide_literature or 0,
-                        ev.guide_problem or 0,
-                        ev.guide_presentation or 0,
-                        ev.guide_qa or 0,
-                        guide_total,
-                        # Average marks
-                        avg_literature,
-                        avg_problem,
-                        avg_presentation,
-                        avg_qa,
-                        avg_total,
-                    ])
+            # TODO: Update CSV export for new criteria-based system (temporarily disabled)
 
             if created > 0:
-                flash(f"Imported {created} evaluation record(s). Exported to 'exports/evaluations_review1.csv'.", "success")
-            return redirect(url_for("list_students"))
+                flash(f"Imported {created} evaluation record(s) for Phase {phase} Review {review_no}.", "success")
+            return redirect(url_for("list_students", phase=phase, review=review_no))
 
         return render_template("upload.html")
 
     @app.route("/students")
     def list_students():
+        # Get phase and review from query params, default to Phase 1 Review 1
+        phase = request.args.get("phase", 1, type=int)
+        review = request.args.get("review", 1, type=int)
+        
+        # Get review configuration
+        config = get_review_config(phase, review)
+        
         students = Student.query.order_by(Student.group_no, Student.name).all()
-        # pick latest evaluation per student (review 1)
+        # Filter evaluations by phase and review
         data = []
         for s in students:
-            ev = sorted(s.evaluations, key=lambda e: (e.review_no, e.id))[-1] if s.evaluations else None
+            ev = Evaluation.query.filter_by(student=s, phase=phase, review_no=review).first()
             if ev:
                 data.append((s, ev))
-        return render_template("students.html", items=data)
+        return render_template("students.html", items=data, phase=phase, review=review, config=config)
     
     @app.route("/students/groupwise")
     def students_groupwise():
+        # Get phase and review from query params
+        phase = request.args.get("phase", 1, type=int)
+        review = request.args.get("review", 1, type=int)
+        
+        # Get review configuration
+        config = get_review_config(phase, review)
+        
         # Get all students with their evaluations, grouped by group_no
         students = Student.query.order_by(Student.group_no, Student.name).all()
         
@@ -403,15 +281,22 @@ def create_app() -> Flask:
             if group_no not in groups:
                 groups[group_no] = []
             
-            # Get latest evaluation
-            ev = sorted(student.evaluations, key=lambda e: (e.review_no, e.id))[-1] if student.evaluations else None
+            # Get evaluation for specific phase and review
+            ev = Evaluation.query.filter_by(student=student, phase=phase, review_no=review).first()
             if ev:
                 groups[group_no].append((student, ev))
         
-        return render_template("students_groupwise.html", groups=groups)
+        return render_template("students_groupwise.html", groups=groups, phase=phase, review=review, config=config)
     
     @app.route("/students/guidewise")
     def students_guidewise():
+        # Get phase and review from query params
+        phase = request.args.get("phase", 1, type=int)
+        review = request.args.get("review", 1, type=int)
+        
+        # Get review configuration
+        config = get_review_config(phase, review)
+        
         # Get all students with their evaluations, grouped by guide
         students = Student.query.order_by(Student.name).all()
         
@@ -419,7 +304,7 @@ def create_app() -> Flask:
         guides = {}
         
         for student in students:
-            ev = sorted(student.evaluations, key=lambda e: (e.review_no, e.id))[-1] if student.evaluations else None
+            ev = Evaluation.query.filter_by(student=student, phase=phase, review_no=review).first()
             if ev and student.project_guide:
                 guide_name = student.project_guide.strip()
                 
@@ -427,43 +312,73 @@ def create_app() -> Flask:
                     guides[guide_name] = []
                 guides[guide_name].append((student, ev))
         
-        return render_template("students_guidewise.html", guides=guides)
+        return render_template("students_guidewise.html", guides=guides, phase=phase, review=review, config=config)
     
     @app.route("/students/individual")
     def students_individual():
+        # Get phase and review from query params
+        phase = request.args.get("phase", 1, type=int)
+        review = request.args.get("review", 1, type=int)
+        
+        # Get review configuration
+        config = get_review_config(phase, review)
+        
         # Enhanced individual view with more details
         students = Student.query.order_by(Student.name).all()
         data = []
         for s in students:
-            ev = sorted(s.evaluations, key=lambda e: (e.review_no, e.id))[-1] if s.evaluations else None
+            ev = Evaluation.query.filter_by(student=s, phase=phase, review_no=review).first()
             if ev:
                 # Add more detailed individual data
                 individual_data = {
                     'student': s,
                     'evaluation': ev,
-                    'member1_total': (ev.member1_literature or 0) + (ev.member1_problem or 0) + 
-                                   (ev.member1_presentation or 0) + (ev.member1_qa or 0),
-                    'member2_total': (ev.member2_literature or 0) + (ev.member2_problem or 0) + 
-                                   (ev.member2_presentation or 0) + (ev.member2_qa or 0),
-                    'guide_total': (ev.guide_literature or 0) + (ev.guide_problem or 0) + 
-                                  (ev.guide_presentation or 0) + (ev.guide_qa or 0),
+                    'member1_total': (ev.member1_criteria1 or 0) + (ev.member1_criteria2 or 0) + 
+                                   (ev.member1_criteria3 or 0) + (ev.member1_criteria4 or 0),
+                    'member2_total': (ev.member2_criteria1 or 0) + (ev.member2_criteria2 or 0) + 
+                                   (ev.member2_criteria3 or 0) + (ev.member2_criteria4 or 0),
+                    'guide_total': (ev.guide_criteria1 or 0) + (ev.guide_criteria2 or 0) + 
+                                  (ev.guide_criteria3 or 0) + (ev.guide_criteria4 or 0),
                 }
                 data.append(individual_data)
         
-        return render_template("students_individual.html", students_data=data)
+        return render_template("students_individual.html", students_data=data, phase=phase, review=review, config=config)
 
     @app.route("/students/<int:student_id>")
     def student_detail(student_id: int):
+        # Get phase and review from query params
+        phase = request.args.get("phase", 1, type=int)
+        review = request.args.get("review", 1, type=int)
+        
         student = Student.query.get_or_404(student_id)
-        ev = sorted(student.evaluations, key=lambda e: (e.review_no, e.id))[-1]
-        return render_template("student_detail.html", student=student, ev=ev)
+        # Get evaluation for specific phase and review
+        ev = Evaluation.query.filter_by(student=student, phase=phase, review_no=review).first()
+        
+        if not ev:
+            flash(f"No evaluation found for Phase {phase} Review {review}", "error")
+            return redirect(url_for("list_students", phase=phase, review=review))
+        
+        # Get review configuration
+        config = get_review_config(phase, review)
+        
+        return render_template("student_detail.html", student=student, ev=ev, phase=phase, review=review, config=config)
 
     @app.route("/students/<int:student_id>/download")
     def download_review1(student_id: int):
+        # Get phase and review from query params
+        phase = request.args.get("phase", 1, type=int)
+        review = request.args.get("review", 1, type=int)
+        
         student = Student.query.get_or_404(student_id)
-        ev = sorted(student.evaluations, key=lambda e: (e.review_no, e.id))[-1]
-        pdf_buffer = build_review1_pdf(student, ev)
-        filename = f"Review-1_{student.seat_no}_{student.name.replace(' ', '_')}.pdf"
+        # Get evaluation for specific phase and review
+        ev = Evaluation.query.filter_by(student=student, phase=phase, review_no=review).first()
+        
+        if not ev:
+            flash(f"No evaluation found for Phase {phase} Review {review}", "error")
+            return redirect(url_for("list_students", phase=phase, review=review))
+        
+        pdf_buffer = build_review1_pdf(student, ev, phase, review)
+        filename = f"Phase{phase}_Review{review}_{student.seat_no}_{student.name.replace(' ', '_')}.pdf"
         return send_file(pdf_buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
 
     @app.route("/students/<int:student_id>/csv")
@@ -595,37 +510,50 @@ def create_app() -> Flask:
     
     @app.route("/summary.pdf")
     def download_summary_pdf():
-        # Get guide-wise data
+        # Collect all evaluations grouped by phase and review
         students = Student.query.order_by(Student.name).all()
-        guides = {}
-        for student in students:
-            ev = sorted(student.evaluations, key=lambda e: (e.review_no, e.id))[-1] if student.evaluations else None
-            if ev and student.project_guide:
-                guide_name = student.project_guide.strip()
-                if guide_name not in guides:
-                    guides[guide_name] = []
-                guides[guide_name].append((student, ev))
         
-        # Get group-wise data
-        groups = {}
-        for student in students:
-            group_no = student.group_no or "No Group"
-            if group_no not in groups:
-                groups[group_no] = []
-            ev = sorted(student.evaluations, key=lambda e: (e.review_no, e.id))[-1] if student.evaluations else None
-            if ev:
-                groups[group_no].append((student, ev))
+        # Structure: {(phase, review): {'guides': {...}, 'groups': {...}}}
+        all_data = {}
         
-        if not guides and not groups:
+        # Define all possible phase-review combinations
+        phase_review_combos = [(1, 1), (1, 2), (2, 1), (2, 2)]
+        
+        for phase, review in phase_review_combos:
+            guides = {}
+            groups = {}
+            
+            for student in students:
+                ev = next((e for e in student.evaluations if e.phase == phase and e.review_no == review), None)
+                
+                # Add to guides
+                if ev and student.project_guide:
+                    guide_name = student.project_guide.strip()
+                    if guide_name not in guides:
+                        guides[guide_name] = []
+                    guides[guide_name].append((student, ev))
+                
+                # Add to groups
+                if ev:
+                    group_no = student.group_no or "No Group"
+                    if group_no not in groups:
+                        groups[group_no] = []
+                    groups[group_no].append((student, ev))
+            
+            # Only include if there's data
+            if guides or groups:
+                all_data[(phase, review)] = {'guides': guides, 'groups': groups}
+        
+        if not all_data:
             flash("No evaluation data found to generate summary.", "error")
             return redirect(url_for("list_students"))
         
-        pdf_buffer = build_comprehensive_pdf(guides, groups)
-        filename = f"CIE_Review1_Comprehensive_Report_{date.today().strftime('%Y%m%d')}.pdf"
+        pdf_buffer = build_comprehensive_pdf(all_data)
+        filename = f"CIE_Comprehensive_Report_All_Reviews_{date.today().strftime('%Y%m%d')}.pdf"
         return send_file(pdf_buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
 
     return app
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=True)
