@@ -1,9 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Upload Review‑1 Excel (.xlsx)</h3>
+<h3>Upload Evaluation Data Excel (.xlsx)</h3>
 <form method="post" enctype="multipart/form-data">
-  <input type="file" name="file" accept=".xlsx" required />
-  <button type="submit">Upload</button>
+  <div style="margin-bottom: 15px;">
+    <label for="phase"><strong>Select Phase:</strong></label>
+    <select name="phase" id="phase" required style="margin-left: 10px; padding: 5px;">
+      <option value="1" selected>Phase 1</option>
+      <option value="2">Phase 2</option>
+    </select>
+  </div>
+  
+  <div style="margin-bottom: 15px;">
+    <label for="review"><strong>Select Review:</strong></label>
+    <select name="review" id="review" required style="margin-left: 10px; padding: 5px;">
+      <option value="1" selected>Review 1</option>
+      <option value="2">Review 2</option>
+    </select>
+  </div>
+  
+  <div style="margin-bottom: 15px;">
+    <label for="file"><strong>Choose File:</strong></label>
+    <input type="file" name="file" id="file" accept=".xlsx" required style="margin-left: 10px;" />
+  </div>
+  
+  <button type="submit" style="padding: 8px 20px; font-size: 14px;">Upload</button>
 </form>
 <p>Upload an Excel .xlsx file with a header row. Accepted headers (case-insensitive):</p>
 <ul>

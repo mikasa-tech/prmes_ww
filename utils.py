@@ -1,11 +1,13 @@
 from typing import Dict, List
 import re
+from review_config import get_weights_dict
 
+# Default weights for Phase 1 Review 1 (backward compatibility)
 WEIGHTS = {
-    "literature_survey": 20,
-    "problem_identification": 10,
-    "presentation": 10,
-    "question_answer": 10,
+    "criteria1": 20,  # Literature Survey
+    "criteria2": 10,  # Problem Identification
+    "criteria3": 10,  # Presentation
+    "criteria4": 10,  # Q&A
 }
 TOTAL_MAX = 50
 
@@ -37,10 +39,12 @@ def _hamilton_round(values: Dict[str, float], target_sum: int) -> Dict[str, int]
         result[fracs[i % len(fracs)][0]] += 1
     return result
 
-def reverse_engineer_components(total: int) -> Dict[str, int]:
+def reverse_engineer_components(total: int, phase: int = 1, review: int = 1) -> Dict[str, int]:
+    """Reverse engineer component marks from total, using phase/review-specific weights"""
+    weights = get_weights_dict(phase, review) or WEIGHTS
     t = max(0, min(int(total), TOTAL_MAX))
     if t == 0:
-        return {k: 0 for k in WEIGHTS}
+        return {k: 0 for k in weights}
     # proportional allocation by max weights, then Hamilton rounding to maintain sum
-    scaled = {k: (t * (w / TOTAL_MAX)) for k, w in WEIGHTS.items()}
+    scaled = {k: (t * (w / TOTAL_MAX)) for k, w in weights.items()}
     return _hamilton_round(scaled, t)
