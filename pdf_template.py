@@ -158,11 +158,27 @@ def build_review1_pdf(student, ev, phase=None, review=None):
     # Calculate marks dynamically based on criteria
     criteria_marks = []
     for i in range(1, 5):  # criteria1 to criteria4
+        criterion_config = config['criteria'][i-1]
         m1 = int(getattr(ev, f'member1_criteria{i}', 0) or 0)
         m2 = int(getattr(ev, f'member2_criteria{i}', 0) or 0)
         m_guide = int(getattr(ev, f'guide_criteria{i}', 0) or 0)
-        avg = int(round((m1 + m2 + m_guide) / 3)) if (m1 + m2 + m_guide) > 0 else 0
-        criteria_marks.append({'m1': m1, 'm2': m2, 'guide': m_guide, 'avg': avg})
+        
+        # Check if guide marks are applicable for this criterion
+        guide_marks_applicable = criterion_config.get('guide_marks', True)
+        
+        # Calculate average: if guide marks not applicable, average only m1 and m2
+        if guide_marks_applicable:
+            avg = int(round((m1 + m2 + m_guide) / 3)) if (m1 + m2 + m_guide) > 0 else 0
+        else:
+            avg = int(round((m1 + m2) / 2)) if (m1 + m2) > 0 else 0
+        
+        criteria_marks.append({
+            'm1': m1, 
+            'm2': m2, 
+            'guide': m_guide,  # Always store guide marks for display
+            'avg': avg,
+            'guide_applicable': guide_marks_applicable
+        })
     
     total_marks = sum(c['avg'] for c in criteria_marks)
     
@@ -180,16 +196,21 @@ def build_review1_pdf(student, ev, phase=None, review=None):
     ]
     
     # Add first two criteria (guide marks) with student info on first row
+    # Per reference format, for "Marks allotted by Project Guide" section:
+    # - Chairperson (Member-1): shows NA
+    # - Member-2: shows NA  
+    # - Internal Guide: shows actual marks
     for idx, criterion in enumerate(config['criteria'][:2], 1):
         marks = criteria_marks[idx-1]
+        
         row = [
             '1' if idx == 1 else '',
             student.seat_no if idx == 1 else '',
             student.name if idx == 1 else '',
             f"({chr(96+idx)}) {criterion['name']} ({criterion['max_marks']} Marks)",
-            str(marks['m1']) if marks['m1'] > 0 else 'NA',
-            str(marks['m2']) if marks['m2'] > 0 else '',
-            str(marks['guide']) if marks['guide'] > 0 else '',
+            'NA',  # Chairperson shows NA in guide section (per reference docs)
+            'NA',  # Member-2 shows NA in guide section (per reference docs)
+            str(marks['guide']) if marks['guide'] > 0 else '',  # Guide shows actual marks
             str(marks['avg'])
         ]
         table_data.append(row)
@@ -198,14 +219,19 @@ def build_review1_pdf(student, ev, phase=None, review=None):
     table_data.append(['', '', '', config.get('committee_section_label', 'Marks allotted by Committee'), '', '', '', ''])
     
     # Add last two criteria (committee marks)
+    # In the reference format, for "Marks allotted by Committee" section:
+    # - Chairperson (Member-1) shows actual marks
+    # - Member-2 shows actual marks
+    # - Internal Guide shows actual marks
     for idx, criterion in enumerate(config['criteria'][2:], 3):
         marks = criteria_marks[idx-1]
+        
         row = [
             '', '', '',
             f"({chr(96+idx)}) {criterion['name']} ({criterion['max_marks']} Marks)",
-            str(marks['m1']),
-            str(marks['m2']),
-            str(marks['guide']),
+            str(marks['m1']),  # Chairperson shows actual marks
+            str(marks['m2']),  # Member-2 shows actual marks
+            str(marks['guide']) if marks['guide'] > 0 else '',  # Internal Guide shows actual marks
             str(marks['avg'])
         ]
         table_data.append(row)
@@ -216,88 +242,89 @@ def build_review1_pdf(student, ev, phase=None, review=None):
     # Perfect column widths for A4 with proper row heights
     col_widths = [12*mm, 18*mm, 35*mm, 62*mm, 20*mm, 18*mm, 20*mm, 20*mm]
     
-    # Set VERY generous row heights to completely prevent text overlapping
+    # Calculate dynamic row heights based on number of criteria
     row_heights = [
-        20*mm,  # Header row 1 - much taller
-        20*mm,  # Header row 2 - much taller
-        15*mm,  # Project Guide section header - increased
-        25*mm,  # Literature Survey - MUCH taller for student info
-        18*mm,  # Problem Identification - much increased
-        15*mm,  # Committee section header - increased
-        18*mm,  # Presentation - much increased
-        18*mm,  # Q&A - much increased
-        18*mm   # Total - much increased
+        20*mm,  # Header row 1
+        20*mm,  # Header row 2
+        15*mm,  # Project Guide section header
     ]
+    # Add heights for guide criteria (first 2 criteria)
+    row_heights.append(25*mm)  # First criterion with student info
+    row_heights.append(18*mm)  # Second criterion
+    # Committee section header
+    row_heights.append(15*mm)
+    # Add heights for committee criteria (last 2 criteria)
+    row_heights.append(18*mm)  # Third criterion
+    row_heights.append(18*mm)  # Fourth criterion
+    # Total row
+    row_heights.append(18*mm)
     
     main_table = Table(table_data, colWidths=col_widths, rowHeights=row_heights)
     
-    # Apply perfect styling matching the document
+    # Apply enhanced styling with better colors and visibility
     main_table.setStyle(TableStyle([
-        # Overall grid
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        # Overall grid with better visibility
+        ('GRID', (0, 0), (-1, -1), 0.75, colors.HexColor('#404040')),
         
-        # Font settings - slightly smaller to prevent overlap
+        # Font settings
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 7),  # Reduced to prevent text overflow
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
         
-        # Header styling with extra space
+        # Header styling with attractive colors
         ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 1), 9),
-        ('BACKGROUND', (0, 0), (-1, 1), colors.lightgrey),
-        # EXTRA generous padding for headers to prevent text cramping
-        ('TOPPADDING', (0, 0), (-1, 1), 18),
-        ('BOTTOMPADDING', (0, 0), (-1, 1), 18),
+        ('FONTSIZE', (0, 0), (-1, 1), 10),
+        ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#1e3a8a')),  # Deep blue
+        ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
+        ('TOPPADDING', (0, 0), (-1, 1), 15),
+        ('BOTTOMPADDING', (0, 0), (-1, 1), 15),
         
-        # Section headers styling
-        ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),  # Project Guide
-        ('FONTNAME', (0, 5), (-1, 5), 'Helvetica-Bold'),  # Committee
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), # Total
+        # Section headers styling with distinct colors
+        ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 2), (-1, 2), 9),
+        ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#fef3c7')),  # Light yellow
+        ('FONTNAME', (0, 5), (-1, 5), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 5), (-1, 5), 9),
+        ('BACKGROUND', (0, 5), (-1, 5), colors.HexColor('#fef3c7')),  # Light yellow
         
-        # Student info styling - make it stand out beautifully
-        ('FONTNAME', (0, 3), (2, 6), 'Helvetica-Bold'),   # S.No, Seat No, Name bold
-        ('FONTSIZE', (0, 3), (2, 6), 9),                  # Slightly larger font
+        # Total row styling
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, -1), (-1, -1), 10),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#dbeafe')),  # Light blue
         
-        # Cell merging - properly span student info across all 4 component rows
+        # Student info styling - enhanced
+        ('FONTNAME', (0, 3), (2, 6), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 3), (2, 6), 10),
+        ('BACKGROUND', (0, 3), (2, 6), colors.HexColor('#e0f2fe')),  # Light cyan
+        ('TEXTCOLOR', (0, 3), (2, 6), colors.HexColor('#003366')),
+        
+        # Cell merging
         ('SPAN', (4, 0), (6, 0)),  # CIE header span
-        ('SPAN', (0, 3), (0, 6)),  # Sl No spanning all 4 component rows (lit, prob, pres, qa)
-        ('SPAN', (1, 3), (1, 6)),  # Seat No spanning all 4 component rows
-        ('SPAN', (2, 3), (2, 6)),  # Name spanning all 4 component rows
+        ('SPAN', (0, 3), (0, 6)),  # Sl No spanning
+        ('SPAN', (1, 3), (1, 6)),  # Seat No spanning
+        ('SPAN', (2, 3), (2, 6)),  # Name spanning
         
-        # Alignment - Beautiful centered alignment for student info
+        # Alignment
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('ALIGN', (3, 2), (3, -1), 'LEFT'),    # Assessment column left aligned
+        ('ALIGN', (3, 2), (3, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('VALIGN', (0, 3), (2, 6), 'MIDDLE'),
+        ('ALIGN', (0, 3), (2, 6), 'CENTER'),
         
-        # Special vertical alignment for student info in spanned cells
-        ('VALIGN', (0, 3), (2, 6), 'MIDDLE'),  # S.No, Seat No, Name perfectly centered
-        ('ALIGN', (0, 3), (2, 6), 'CENTER'),   # Also center horizontally
-        
-        # VERY generous padding to completely prevent text touching lines
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),    # Much more left padding
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),   # Much more right padding
-        ('TOPPADDING', (0, 0), (-1, -1), 15),    # MUCH more top padding
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 15), # MUCH more bottom padding
-        
-        # Highlight important rows with beautiful colors
-        ('BACKGROUND', (0, 2), (-1, 2), colors.lightyellow),  # Project Guide section
-        ('BACKGROUND', (0, 5), (-1, 5), colors.lightyellow),  # Committee section
-        ('BACKGROUND', (0, -1), (-1, -1), colors.lightblue),  # Total row
-        
-        # Beautiful subtle background for student info columns
-        ('BACKGROUND', (0, 3), (2, 6), colors.lightcyan),     # S.No, Seat No, Name region
+        # Enhanced padding for better spacing
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 2), (-1, -2), 12),
+        ('BOTTOMPADDING', (0, 2), (-1, -2), 12),
         
         # Thicker borders for sections
-        ('LINEABOVE', (0, 2), (-1, 2), 1, colors.black),     # Project Guide
-        ('LINEABOVE', (0, 5), (-1, 5), 1, colors.black),     # Committee
-        ('LINEABOVE', (0, -1), (-1, -1), 1.5, colors.black), # Total
+        ('LINEABOVE', (0, 2), (-1, 2), 1.5, colors.HexColor('#666666')),
+        ('LINEABOVE', (0, 5), (-1, 5), 1.5, colors.HexColor('#666666')),
+        ('LINEABOVE', (0, -1), (-1, -1), 2, colors.HexColor('#1e3a8a')),
         
-        # Make numeric columns slightly darker for better readability
-        ('TEXTCOLOR', (4, 1), (-1, -1), colors.black),
-        
-        # Beautiful formatting for student info region
-        ('FONTNAME', (0, 3), (2, 6), 'Helvetica-Bold'),      # Bold font for student info
-        ('FONTSIZE', (0, 3), (2, 6), 9),                     # Slightly larger font
-        ('TEXTCOLOR', (0, 3), (2, 6), colors.darkblue),      # Professional dark blue text
+        # Marks styling - make them stand out
+        ('FONTNAME', (4, 3), (-1, -2), 'Helvetica-Bold'),
+        ('FONTSIZE', (4, 3), (-1, -2), 9),
+        ('TEXTCOLOR', (7, 3), (7, -2), colors.HexColor('#059669')),  # Green for averages
         
     ]))
     
