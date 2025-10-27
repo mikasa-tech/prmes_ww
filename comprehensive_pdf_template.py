@@ -42,38 +42,42 @@ def build_comprehensive_pdf(all_data):
     college_title_style = ParagraphStyle(
         'CollegeTitle',
         parent=styles['Normal'],
-        fontSize=14,
+        fontSize=13,
         fontName='Helvetica-Bold',
         alignment=TA_CENTER,
-        spaceAfter=3
+        spaceAfter=4,
+        leading=16
     )
     
     title_style = ParagraphStyle(
         'Title',
         parent=styles['Normal'],
-        fontSize=16,
+        fontSize=14,
         fontName='Helvetica-Bold',
         alignment=TA_CENTER,
-        spaceAfter=6,
-        textColor=colors.darkblue
+        spaceAfter=8,
+        textColor=colors.HexColor('#003366'),
+        leading=17
     )
     
     section_style = ParagraphStyle(
         'Section',
         parent=styles['Normal'],
-        fontSize=12,
+        fontSize=13,
         fontName='Helvetica-Bold',
         alignment=TA_CENTER,
-        spaceAfter=8,
-        textColor=colors.darkred
+        spaceAfter=10,
+        textColor=colors.HexColor('#8B0000'),
+        leading=16
     )
     
     info_style = ParagraphStyle(
         'Info',
         parent=styles['Normal'],
-        fontSize=9,
+        fontSize=10,
         fontName='Helvetica',
-        alignment=TA_LEFT
+        alignment=TA_CENTER,
+        leading=12
     )
     
     story = []
@@ -113,9 +117,9 @@ def build_comprehensive_pdf(all_data):
     story.append(Spacer(1, 12))
     
     # Main title
-    story.append(Paragraph("COMPREHENSIVE PROJECT EVALUATION REPORT", title_style))
-    story.append(Paragraph(f"Generated on: {date.today().strftime('%d/%m/%Y')}", info_style))
-    story.append(Spacer(1, 20))
+    story.append(Paragraph("<b>COMPREHENSIVE PROJECT EVALUATION REPORT</b>", title_style))
+    story.append(Paragraph(f"<i>Generated on: {date.today().strftime('%d/%m/%Y')}</i>", info_style))
+    story.append(Spacer(1, 15))
     
     # Process each phase-review combination
     for idx, ((phase, review), data) in enumerate(sorted(all_data.items())):
@@ -149,73 +153,97 @@ def build_comprehensive_pdf(all_data):
         if not all_students:
             continue
         
-        # Create simple summary table
+        # Create simple summary table with better formatting
         table_data = [[
-            "Sl.\nNo.",
-            "Group\nNo.",
-            "Seat No.",
-            "Student Name",
-            "Project Guide"
+            Paragraph("<b>Sl.<br/>No.</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER, leading=12)),
+            Paragraph("<b>Group<br/>No.</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER, leading=12)),
+            Paragraph("<b>Seat<br/>No.</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER, leading=12)),
+            Paragraph("<b>Student Name</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER, leading=12)),
+            Paragraph("<b>Project Guide</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER, leading=12))
         ]]
         
-        # Add criteria headers dynamically
+        # Add criteria headers dynamically with proper formatting
         for i, crit in enumerate(criteria, 1):
-            table_data[0].append(f"{crit}\n({max_marks[i-1]})")
-        table_data[0].append("Total\n(50)")
+            # Wrap long criterion names
+            if len(crit) > 20:
+                words = crit.split()
+                mid = len(words) // 2
+                line1 = ' '.join(words[:mid])
+                line2 = ' '.join(words[mid:])
+                header_text = f"<b>{line1}<br/>{line2}<br/>({max_marks[i-1]})</b>"
+            else:
+                header_text = f"<b>{crit}<br/>({max_marks[i-1]})</b>"
+            table_data[0].append(Paragraph(header_text, ParagraphStyle('center', fontSize=9, alignment=TA_CENTER, leading=11)))
+        table_data[0].append(Paragraph("<b>Total<br/>(50)</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER, leading=12)))
         
-        # Add student data
+        # Add student data with proper formatting
         for idx, (student, ev) in enumerate(sorted(all_students, key=lambda x: (x[0].group_no or '', x[0].name)), 1):
+            # Format student name to fit
+            student_name = student.name
+            if len(student_name) > 30:
+                student_name = student_name[:27] + "..."
+            
+            # Format guide name to fit
+            guide_name = student.project_guide or '-'
+            if len(guide_name) > 25:
+                guide_name = guide_name[:22] + "..."
+            
             row = [
-                str(idx),
-                str(student.group_no or '-'),
-                student.seat_no,
-                student.name,
-                student.project_guide or '-'
+                Paragraph(str(idx), ParagraphStyle('center', fontSize=9, alignment=TA_CENTER)),
+                Paragraph(str(student.group_no or '-'), ParagraphStyle('center', fontSize=9, alignment=TA_CENTER)),
+                Paragraph(student.seat_no, ParagraphStyle('center', fontSize=9, alignment=TA_CENTER)),
+                Paragraph(student_name, ParagraphStyle('left', fontSize=9, alignment=TA_LEFT)),
+                Paragraph(guide_name, ParagraphStyle('left', fontSize=8, alignment=TA_LEFT, leading=10))
             ]
-            # Add criteria marks
+            # Add criteria marks with proper formatting
             for i in range(1, len(criteria) + 1):
-                row.append(str(getattr(ev, f"criteria{i}", 0)))
-            row.append(str(ev.total_marks))
+                mark = str(getattr(ev, f"criteria{i}", 0))
+                row.append(Paragraph(f"<b>{mark}</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER)))
+            # Add total with emphasis
+            row.append(Paragraph(f"<b>{ev.total_marks}</b>", ParagraphStyle('center', fontSize=11, alignment=TA_CENTER, textColor=colors.HexColor('#006400'))))
             table_data.append(row)
         
-        # Create table with proper column widths
-        col_widths = [12*mm, 15*mm, 20*mm, 40*mm, 35*mm] + [15*mm] * len(criteria) + [15*mm]
-        summary_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        # Create table with optimized column widths for better fit
+        col_widths = [10*mm, 12*mm, 18*mm, 38*mm, 32*mm] + [16*mm] * len(criteria) + [14*mm]
+        summary_table = Table(table_data, colWidths=col_widths, repeatRows=1, rowHeights=None)
         
-        # Apply styling
+        # Apply enhanced styling with better visibility
         summary_table.setStyle(TableStyle([
-            # Header styling
-            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            # Header styling with gradient-like appearance
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),  # Deep blue
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
             ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
             
-            # Data styling
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('ALIGN', (0, 1), (2, -1), 'CENTER'),  # Serial, group, seat
-            ('ALIGN', (3, 1), (4, -1), 'LEFT'),    # Name and guide
-            ('ALIGN', (5, 1), (-1, -1), 'CENTER'), # Marks
+            # Data styling - no font specifications for Paragraph content
+            ('ALIGN', (0, 1), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
             
-            # Grid and borders
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('LINEBELOW', (0, 0), (-1, 0), 2, colors.darkblue),
+            # Grid and borders with better visibility
+            ('GRID', (0, 0), (-1, -1), 0.75, colors.HexColor('#404040')),
+            ('LINEBELOW', (0, 0), (-1, 0), 2.5, colors.HexColor('#1e3a8a')),
+            ('LINEAFTER', (4, 0), (4, -1), 1.5, colors.HexColor('#666666')),  # Separator after guide column
             
-            # Padding
-            ('LEFTPADDING', (0, 0), (-1, -1), 4),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            # Enhanced padding for better text fit
+            ('LEFTPADDING', (0, 0), (-1, -1), 3),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 1), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
         ]))
         
-        # Add alternating row colors
+        # Add alternating row colors with better contrast
         for i in range(1, len(table_data)):
             if i % 2 == 0:
                 summary_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, i), (-1, i), colors.lightgrey)
+                    ('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f0f4f8'))
+                ]))
+            else:
+                summary_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, i), (-1, i), colors.white)
                 ]))
         
         story.append(summary_table)
