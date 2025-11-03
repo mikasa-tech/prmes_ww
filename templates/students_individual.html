@@ -79,8 +79,8 @@
                 <strong>C4:</strong> {{ ev.criteria4 }}
             </td>
             <td style="border: 1px solid #ddd; padding: 8px;">
-                <a href="{{ url_for('student_detail', student_id=student.id) }}" style="color: #007bff; display: block; margin: 2px 0;">View</a>
-                <a href="{{ url_for('download_review1', student_id=student.id) }}" style="color: #28a745; display: block; margin: 2px 0;">PDF</a>
+                <a href="{{ url_for('student_detail', student_id=student.id, phase=phase, review=review) }}" style="color: #007bff; display: block; margin: 2px 0;">View</a>
+                <a href="{{ url_for('download_review1', student_id=student.id, phase=phase, review=review) }}" style="color: #28a745; display: block; margin: 2px 0;">PDF</a>
             </td>
         </tr>
         {% endfor %}
