@@ -168,7 +168,9 @@ def create_app() -> Flask:
                     student = Student(name=name, seat_no=seat_no, group_no=group_no, project_title=project_title, project_guide=project_guide)
                     db.session.add(student)
                 else:
-                    # update optional meta if provided
+                    # update all fields if provided (including name for corrections/updates)
+                    if name:
+                        student.name = name
                     if group_no:
                         student.group_no = group_no
                     if project_title:

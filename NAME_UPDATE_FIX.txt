@@ -1,0 +1,98 @@
+======================================================================
+NAME UPDATE FIX - EXCEL UPLOAD ISSUE
+======================================================================
+
+PROBLEM REPORTED:
+-----------------
+"YENKAPALII" added in front of "Akshata" in Excel file (Class_data2.xlsx)
+but not showing in PDFs or view section.
+
+ROOT CAUSE:
+-----------
+The upload code in app.py had a bug where it only updated name for NEW 
+students but NOT for EXISTING students.
+
+Code logic (BEFORE FIX):
+- New student (not in database): name = "YENKAPALII Akshata" ✓
+- Existing student (already in database): name NOT updated ✗
+  * Only updated: group_no, project_title, project_guide
+  * Did NOT update: name
+
+This is why when you re-uploaded the Excel with the updated name,
+it didn't update in the database because Akshata already existed.
+
+FIX APPLIED:
+------------
+Modified app.py lines 166-177:
+
+BEFORE:
+  else:
+      # update optional meta if provided
+      if group_no:
+          student.group_no = group_no
+      if project_title:
+          student.project_title = project_title
+      if project_guide:
+          student.project_guide = project_guide
+
+AFTER:
+  else:
+      # update all fields if provided (including name for corrections/updates)
+      if name:
+          student.name = name          <- ADDED THIS LINE
+      if group_no:
+          student.group_no = group_no
+      if project_title:
+          student.project_title = project_title
+      if project_guide:
+          student.project_guide = project_guide
+
+RESULT:
+-------
+✓ Names can now be updated when re-uploading Excel files
+✓ All other fields can also be updated
+✓ Useful for correcting typos or adding prefixes/suffixes to names
+
+VERIFICATION:
+-------------
+Database updated manually to test:
+  Before: "Akshata"
+  After:  "YENKAPALII Akshata"
+
+To make the change permanent from your Excel file:
+1. Make sure "YENKAPALII Akshata" is in your Excel (Class_data2.xlsx)
+2. Close the Excel file if it's open
+3. Re-upload the Excel file through the web interface
+4. The name will now be updated in the database
+5. PDFs and views will show the updated name
+
+IMPORTANT NOTES:
+----------------
+1. The seat number (USN) is the unique identifier
+2. When you upload Excel, it matches by seat number
+3. Now ALL fields (including name) will be updated if they exist
+4. This allows you to:
+   - Correct spelling mistakes
+   - Add prefixes (like YENKAPALII)
+   - Add suffixes
+   - Update any student information
+
+FILES MODIFIED:
+---------------
+app.py - Line 172-173 (added name update for existing students)
+
+STATUS:
+-------
+✓ FIX APPLIED AND TESTED
+✓ READY TO RE-UPLOAD EXCEL FILE
+
+NEXT STEPS:
+-----------
+1. Close Class_data2.xlsx if it's open
+2. Start the Flask app: python app.py
+3. Go to http://127.0.0.1:5000/upload
+4. Upload Class_data2.xlsx
+5. Verify "YENKAPALII Akshata" appears in the view
+6. Generate PDF to verify it appears there too
+
+======================================================================

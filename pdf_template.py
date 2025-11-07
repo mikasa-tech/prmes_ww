@@ -32,10 +32,10 @@ def build_review1_pdf(student, ev, phase=None, review=None):
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=A4,
-        rightMargin=15*mm, 
-        leftMargin=15*mm, 
-        topMargin=10*mm, 
-        bottomMargin=15*mm
+        rightMargin=12*mm, 
+        leftMargin=12*mm, 
+        topMargin=8*mm, 
+        bottomMargin=10*mm
     )
     
     elements = []
@@ -96,7 +96,7 @@ def build_review1_pdf(student, ev, phase=None, review=None):
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
     ]))
     elements.append(header_table)
-    elements.append(Spacer(1, 8))
+    elements.append(Spacer(1, 5))
     
     # Academic info in corners
     academic_data = [[
@@ -111,7 +111,7 @@ def build_review1_pdf(student, ev, phase=None, review=None):
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
     ]))
     elements.append(academic_table)
-    elements.append(Spacer(1, 8))
+    elements.append(Spacer(1, 5))
     
     # Main section titles - dynamic phase and review
     phase_roman = "I" if ev.phase == 1 else "II"
@@ -120,7 +120,7 @@ def build_review1_pdf(student, ev, phase=None, review=None):
     elements.append(Paragraph(f"FINAL YEAR STUDENTS MAJOR PROJECT WORK PHASE - {phase_roman}", section_style))
     elements.append(Paragraph(f"CONTINUOUS INTERNAL EVALUATION (CIE) OF MAJOR PROJECT WORK PHASE - {phase_roman}", section_style))
     elements.append(Paragraph(f"REVIEW - {review_roman}", section_style))
-    elements.append(Spacer(1, 12))
+    elements.append(Spacer(1, 8))
     
     # Group and project info with manual-style title wrapping
     project_title = student.project_title or "........................................................................................................................................................................................................."
@@ -147,7 +147,7 @@ def build_review1_pdf(student, ev, phase=None, review=None):
     
     project_info = Paragraph(f"Group No: {student.group_no or '.........'}     Project Title: {project_title}", info_style)
     elements.append(project_info)
-    elements.append(Spacer(1, 12))  # Increased spacing to prevent overlap
+    elements.append(Spacer(1, 8))  # Reduced spacing to fit on single page
     
     # Get configuration for this phase/review
     config = get_review_config(ev.phase, ev.review_no)
@@ -182,18 +182,43 @@ def build_review1_pdf(student, ev, phase=None, review=None):
     
     total_marks = sum(c['avg'] for c in criteria_marks)
     
-    # Create the main evaluation table with dynamic criteria
+    # Create the main evaluation table with dynamic criteria - using Paragraph for text wrapping
     table_data = [
         # Header row with CIE span
-        ['', '', '', '', 'Continuous Internal Evaluation (CIE)\nby', '', '', 'Average CIE\nMarks\n(50 Marks)'],
+        [Paragraph('<b></b>', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+         Paragraph('<b></b>', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+         Paragraph('<b></b>', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+         Paragraph('<b></b>', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+         Paragraph('<b>Continuous Internal Evaluation (CIE) by</b>', ParagraphStyle('header', fontSize=8, alignment=TA_CENTER, leading=9)), 
+         Paragraph('<b></b>', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+         Paragraph('<b></b>', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+         Paragraph('<b>Average CIE Marks (50 Marks)</b>', ParagraphStyle('header', fontSize=7, alignment=TA_CENTER, leading=9))],
         
-        # Sub-header row
-        ['Sl.\nNo.', 'Univ.\nSeat No.', 'Name of the\nStudent', 'Aspect for Assessment', 
-         'Chairperson\n(Member-1)\nMarks', 'Member-2\nMarks', 'Internal\nGuide\nMarks', ''],
+        # Sub-header row with smaller font
+        [Paragraph('<b>Sl. No.</b>', ParagraphStyle('header', fontSize=7, alignment=TA_CENTER, leading=9)), 
+         Paragraph('<b>Univ. Seat No.</b>', ParagraphStyle('header', fontSize=7, alignment=TA_CENTER, leading=9)), 
+         Paragraph('<b>Name of the Student</b>', ParagraphStyle('header', fontSize=7, alignment=TA_CENTER, leading=9)), 
+         Paragraph('<b>Aspect for Assessment</b>', ParagraphStyle('header', fontSize=7, alignment=TA_CENTER, leading=9)), 
+         Paragraph('<b>Chairperson (Member-1) Marks</b>', ParagraphStyle('header', fontSize=7, alignment=TA_CENTER, leading=9)), 
+         Paragraph('<b>Member-2 Marks</b>', ParagraphStyle('header', fontSize=7, alignment=TA_CENTER, leading=9)), 
+         Paragraph('<b>Internal Guide Marks</b>', ParagraphStyle('header', fontSize=7, alignment=TA_CENTER, leading=9)), 
+         Paragraph('<b></b>', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER))],
         
         # Project Guide section header
-        ['', '', '', config.get('guide_section_label', 'Marks allotted by Project Guide'), '', '', '', ''],
+        [Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+         Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+         Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+         Paragraph(f"<b>{config.get('guide_section_label', 'Marks allotted by Project Guide')}</b>", ParagraphStyle('section', fontSize=7, alignment=TA_LEFT, leading=9)), 
+         Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+         Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+         Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+         Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER))],
     ]
+    
+    # Create paragraph styles for table cells
+    cell_style = ParagraphStyle('cell', fontSize=7, alignment=TA_CENTER, leading=9)
+    cell_style_left = ParagraphStyle('cell_left', fontSize=7, alignment=TA_LEFT, leading=9)
+    cell_style_bold = ParagraphStyle('cell_bold', fontSize=8, alignment=TA_CENTER, leading=10, fontName='Helvetica-Bold')
     
     # Add first two criteria (guide marks) with student info on first row
     # Per reference format, for "Marks allotted by Project Guide" section:
@@ -204,19 +229,28 @@ def build_review1_pdf(student, ev, phase=None, review=None):
         marks = criteria_marks[idx-1]
         
         row = [
-            '1' if idx == 1 else '',
-            student.seat_no if idx == 1 else '',
-            student.name if idx == 1 else '',
-            f"({chr(96+idx)}) {criterion['name']} ({criterion['max_marks']} Marks)",
-            'NA',  # Chairperson shows NA in guide section (per reference docs)
-            'NA',  # Member-2 shows NA in guide section (per reference docs)
-            str(marks['guide']) if marks['guide'] > 0 else '',  # Guide shows actual marks
-            str(marks['avg'])
+            Paragraph('<b>1</b>' if idx == 1 else '', cell_style_bold if idx == 1 else cell_style),
+            Paragraph(f'<b>{student.seat_no}</b>' if idx == 1 else '', cell_style_bold if idx == 1 else cell_style),
+            Paragraph(f'<b>{student.name}</b>' if idx == 1 else '', cell_style_bold if idx == 1 else cell_style),
+            Paragraph(f"({chr(96+idx)}) {criterion['name']} ({criterion['max_marks']} Marks)", cell_style_left),
+            Paragraph('<b>NA</b>', cell_style),  # Chairperson shows NA in guide section
+            Paragraph('<b>NA</b>', cell_style),  # Member-2 shows NA in guide section
+            Paragraph(f'<b>{marks["guide"]}</b>' if marks['guide'] > 0 else '', cell_style),  # Guide shows actual marks
+            Paragraph(f'<b>{marks["avg"]}</b>', ParagraphStyle('avg', fontSize=9, alignment=TA_CENTER, leading=11, fontName='Helvetica-Bold', textColor=colors.HexColor('#059669')))
         ]
         table_data.append(row)
     
     # Committee section header
-    table_data.append(['', '', '', config.get('committee_section_label', 'Marks allotted by Committee'), '', '', '', ''])
+    table_data.append([
+        Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+        Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+        Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+        Paragraph(f"<b>{config.get('committee_section_label', 'Marks allotted by Committee')}</b>", ParagraphStyle('section', fontSize=7, alignment=TA_LEFT, leading=9)), 
+        Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+        Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+        Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER)), 
+        Paragraph('', ParagraphStyle('tiny', fontSize=7, alignment=TA_CENTER))
+    ])
     
     # Add last two criteria (committee marks)
     # In the reference format, for "Marks allotted by Committee" section:
@@ -227,37 +261,48 @@ def build_review1_pdf(student, ev, phase=None, review=None):
         marks = criteria_marks[idx-1]
         
         row = [
-            '', '', '',
-            f"({chr(96+idx)}) {criterion['name']} ({criterion['max_marks']} Marks)",
-            str(marks['m1']),  # Chairperson shows actual marks
-            str(marks['m2']),  # Member-2 shows actual marks
-            str(marks['guide']) if marks['guide'] > 0 else '',  # Internal Guide shows actual marks
-            str(marks['avg'])
+            Paragraph('', cell_style),
+            Paragraph('', cell_style),
+            Paragraph('', cell_style),
+            Paragraph(f"({chr(96+idx)}) {criterion['name']} ({criterion['max_marks']} Marks)", cell_style_left),
+            Paragraph(f'<b>{marks["m1"]}</b>', cell_style),  # Chairperson shows actual marks
+            Paragraph(f'<b>{marks["m2"]}</b>', cell_style),  # Member-2 shows actual marks
+            Paragraph(f'<b>{marks["guide"]}</b>' if marks['guide'] > 0 else '', cell_style),  # Internal Guide shows actual marks
+            Paragraph(f'<b>{marks["avg"]}</b>', ParagraphStyle('avg', fontSize=9, alignment=TA_CENTER, leading=11, fontName='Helvetica-Bold', textColor=colors.HexColor('#059669')))
         ]
         table_data.append(row)
     
     # Total row
-    table_data.append(['', '', '', 'Total Marks (50 Marks)', '', '', '', str(total_marks)])
+    table_data.append([
+        Paragraph('', cell_style),
+        Paragraph('', cell_style),
+        Paragraph('', cell_style),
+        Paragraph('<b>Total Marks (50 Marks)</b>', ParagraphStyle('total', fontSize=8, alignment=TA_LEFT, leading=10, fontName='Helvetica-Bold')),
+        Paragraph('', cell_style),
+        Paragraph('', cell_style),
+        Paragraph('', cell_style),
+        Paragraph(f'<b>{total_marks}</b>', ParagraphStyle('total_val', fontSize=10, alignment=TA_CENTER, leading=12, fontName='Helvetica-Bold', textColor=colors.HexColor('#059669')))
+    ])
     
-    # Perfect column widths for A4 with proper row heights
-    col_widths = [12*mm, 18*mm, 35*mm, 62*mm, 20*mm, 18*mm, 20*mm, 20*mm]
+    # Optimized column widths for A4 to fit all content properly
+    col_widths = [10*mm, 20*mm, 32*mm, 60*mm, 18*mm, 16*mm, 18*mm, 18*mm]
     
-    # Calculate dynamic row heights based on number of criteria
+    # Calculate dynamic row heights - reduced for single page fit
     row_heights = [
-        20*mm,  # Header row 1
-        20*mm,  # Header row 2
-        15*mm,  # Project Guide section header
+        16*mm,  # Header row 1
+        16*mm,  # Header row 2
+        12*mm,  # Project Guide section header
     ]
     # Add heights for guide criteria (first 2 criteria)
-    row_heights.append(25*mm)  # First criterion with student info
-    row_heights.append(18*mm)  # Second criterion
+    row_heights.append(20*mm)  # First criterion with student info
+    row_heights.append(14*mm)  # Second criterion
     # Committee section header
-    row_heights.append(15*mm)
+    row_heights.append(12*mm)
     # Add heights for committee criteria (last 2 criteria)
-    row_heights.append(18*mm)  # Third criterion
-    row_heights.append(18*mm)  # Fourth criterion
+    row_heights.append(14*mm)  # Third criterion
+    row_heights.append(14*mm)  # Fourth criterion
     # Total row
-    row_heights.append(18*mm)
+    row_heights.append(14*mm)
     
     main_table = Table(table_data, colWidths=col_widths, rowHeights=row_heights)
     
@@ -266,36 +311,21 @@ def build_review1_pdf(student, ev, phase=None, review=None):
         # Overall grid with better visibility
         ('GRID', (0, 0), (-1, -1), 0.75, colors.HexColor('#404040')),
         
-        # Font settings
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        
-        # Header styling with attractive colors
-        ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 1), 10),
+        # Header styling with attractive colors - reduced padding
         ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#1e3a8a')),  # Deep blue
         ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
-        ('TOPPADDING', (0, 0), (-1, 1), 15),
-        ('BOTTOMPADDING', (0, 0), (-1, 1), 15),
+        ('TOPPADDING', (0, 0), (-1, 1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 1), 8),
         
         # Section headers styling with distinct colors
-        ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 2), (-1, 2), 9),
         ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#fef3c7')),  # Light yellow
-        ('FONTNAME', (0, 5), (-1, 5), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 5), (-1, 5), 9),
         ('BACKGROUND', (0, 5), (-1, 5), colors.HexColor('#fef3c7')),  # Light yellow
         
         # Total row styling
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, -1), (-1, -1), 10),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#dbeafe')),  # Light blue
         
-        # Student info styling - enhanced
-        ('FONTNAME', (0, 3), (2, 6), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 3), (2, 6), 10),
+        # Student info styling - enhanced background
         ('BACKGROUND', (0, 3), (2, 6), colors.HexColor('#e0f2fe')),  # Light cyan
-        ('TEXTCOLOR', (0, 3), (2, 6), colors.HexColor('#003366')),
         
         # Cell merging
         ('SPAN', (4, 0), (6, 0)),  # CIE header span
@@ -304,34 +334,27 @@ def build_review1_pdf(student, ev, phase=None, review=None):
         ('SPAN', (2, 3), (2, 6)),  # Name spanning
         
         # Alignment
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('ALIGN', (3, 2), (3, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('VALIGN', (0, 3), (2, 6), 'MIDDLE'),
-        ('ALIGN', (0, 3), (2, 6), 'CENTER'),
         
-        # Enhanced padding for better spacing
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 2), (-1, -2), 12),
-        ('BOTTOMPADDING', (0, 2), (-1, -2), 12),
+        # Reduced padding for single page fit
+        ('LEFTPADDING', (0, 0), (-1, -1), 2),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, 1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, 1), 6),
         
         # Thicker borders for sections
         ('LINEABOVE', (0, 2), (-1, 2), 1.5, colors.HexColor('#666666')),
         ('LINEABOVE', (0, 5), (-1, 5), 1.5, colors.HexColor('#666666')),
         ('LINEABOVE', (0, -1), (-1, -1), 2, colors.HexColor('#1e3a8a')),
         
-        # Marks styling - make them stand out
-        ('FONTNAME', (4, 3), (-1, -2), 'Helvetica-Bold'),
-        ('FONTSIZE', (4, 3), (-1, -2), 9),
-        ('TEXTCOLOR', (7, 3), (7, -2), colors.HexColor('#059669')),  # Green for averages
-        
     ]))
     
     elements.append(main_table)
-    elements.append(Spacer(1, 25))
+    elements.append(Spacer(1, 15))  # Reduced spacing to fit signatures on same page
     
-    # Professional signature section
+    # Professional signature section - smaller to fit on single page
     sig_data = [[
         'Project coordinator', 'Chairperson\n(Member – 1)', 'Member – 2', 'Guide'
     ]]
@@ -339,10 +362,10 @@ def build_review1_pdf(student, ev, phase=None, review=None):
     sig_table = Table(sig_data, colWidths=[45*mm, 45*mm, 45*mm, 45*mm])
     sig_table.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
-        ('TOPPADDING', (0, 0), (-1, -1), 35),
+        ('TOPPADDING', (0, 0), (-1, -1), 20),  # Reduced padding
         ('LINEABOVE', (0, 0), (-1, -1), 1, colors.black),
     ]))
     

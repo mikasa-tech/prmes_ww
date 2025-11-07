@@ -153,28 +153,49 @@ def build_comprehensive_pdf(all_data):
         if not all_students:
             continue
         
-        # Create simple summary table with better formatting
+        # Create simple summary table with better formatting - prevent word breaking in headers
+        # Increased leading to prevent text collision
+        header_style_sm = ParagraphStyle('header_sm', fontSize=7, alignment=TA_CENTER, leading=9, wordWrap='LTR', splitLongWords=0)
+        header_style_criteria = ParagraphStyle('header_crit', fontSize=6.5, alignment=TA_CENTER, leading=8, wordWrap='LTR', splitLongWords=0)
+        
         table_data = [[
-            Paragraph("<b>Sl.<br/>No.</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER, leading=12)),
-            Paragraph("<b>Group<br/>No.</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER, leading=12)),
-            Paragraph("<b>Seat<br/>No.</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER, leading=12)),
-            Paragraph("<b>Student Name</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER, leading=12)),
-            Paragraph("<b>Project Guide</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER, leading=12))
+            Paragraph("<b>Sl.<br/>No.</b>", header_style_sm),  # Two lines to prevent collision
+            Paragraph("<b>Group<br/>No.</b>", header_style_sm),  # Two lines to prevent collision
+            Paragraph("<b>Seat<br/>No.</b>", header_style_sm),  # Two lines to prevent collision
+            Paragraph("<b>Student<br/>Name</b>", header_style_sm),
+            Paragraph("<b>Project<br/>Guide</b>", header_style_sm)
         ]]
         
-        # Add criteria headers dynamically with proper formatting
+        # Add criteria headers dynamically with proper formatting - prevent word breaking
         for i, crit in enumerate(criteria, 1):
-            # Wrap long criterion names
-            if len(crit) > 20:
+            # Smart wrapping to prevent awkward word breaks
+            crit_clean = crit.replace(' and ', '<br/>and<br/>')  # Break before 'and'
+            
+            if 'Literature' in crit:
+                header_text = f"<b>Literature<br/>Survey<br/>({max_marks[i-1]})</b>"
+            elif 'Problem' in crit and 'Identification' in crit:
+                header_text = f"<b>Problem<br/>Identification<br/>({max_marks[i-1]})</b>"
+            elif 'presentation' in crit or 'Presentation' in crit:
+                header_text = f"<b>Project<br/>presentation<br/>Skill<br/>({max_marks[i-1]})</b>"
+            elif 'Question' in crit or 'answer' in crit:
+                header_text = f"<b>Question<br/>and answer<br/>session<br/>({max_marks[i-1]})</b>"
+            elif len(crit) > 15:
+                # For other long names, split by words
                 words = crit.split()
-                mid = len(words) // 2
-                line1 = ' '.join(words[:mid])
-                line2 = ' '.join(words[mid:])
-                header_text = f"<b>{line1}<br/>{line2}<br/>({max_marks[i-1]})</b>"
+                if len(words) >= 3:
+                    line1 = words[0]
+                    line2 = ' '.join(words[1:])
+                    header_text = f"<b>{line1}<br/>{line2}<br/>({max_marks[i-1]})</b>"
+                elif len(words) == 2:
+                    header_text = f"<b>{words[0]}<br/>{words[1]}<br/>({max_marks[i-1]})</b>"
+                else:
+                    header_text = f"<b>{crit}<br/>({max_marks[i-1]})</b>"
             else:
                 header_text = f"<b>{crit}<br/>({max_marks[i-1]})</b>"
-            table_data[0].append(Paragraph(header_text, ParagraphStyle('center', fontSize=9, alignment=TA_CENTER, leading=11)))
-        table_data[0].append(Paragraph("<b>Total<br/>(50)</b>", ParagraphStyle('center', fontSize=10, alignment=TA_CENTER, leading=12)))
+            
+            table_data[0].append(Paragraph(header_text, header_style_criteria))
+        
+        table_data[0].append(Paragraph("<b>Total<br/>(50)</b>", header_style_sm))
         
         # Add student data with proper formatting
         for idx, (student, ev) in enumerate(sorted(all_students, key=lambda x: (x[0].group_no or '', x[0].name)), 1):
@@ -191,7 +212,7 @@ def build_comprehensive_pdf(all_data):
             row = [
                 Paragraph(str(idx), ParagraphStyle('center', fontSize=9, alignment=TA_CENTER)),
                 Paragraph(str(student.group_no or '-'), ParagraphStyle('center', fontSize=9, alignment=TA_CENTER)),
-                Paragraph(student.seat_no, ParagraphStyle('center', fontSize=9, alignment=TA_CENTER)),
+                Paragraph(f'<font size=7>{student.seat_no}</font>', ParagraphStyle('center', fontSize=7, alignment=TA_CENTER, leading=9, wordWrap='CJK')),
                 Paragraph(student_name, ParagraphStyle('left', fontSize=9, alignment=TA_LEFT)),
                 Paragraph(guide_name, ParagraphStyle('left', fontSize=8, alignment=TA_LEFT, leading=10))
             ]
@@ -203,8 +224,8 @@ def build_comprehensive_pdf(all_data):
             row.append(Paragraph(f"<b>{ev.total_marks}</b>", ParagraphStyle('center', fontSize=11, alignment=TA_CENTER, textColor=colors.HexColor('#006400'))))
             table_data.append(row)
         
-        # Create table with optimized column widths for better fit
-        col_widths = [10*mm, 12*mm, 18*mm, 38*mm, 32*mm] + [16*mm] * len(criteria) + [14*mm]
+        # Create table with optimized column widths - wider columns for better spacing
+        col_widths = [11*mm, 14*mm, 22*mm, 35*mm, 29*mm] + [18*mm] * len(criteria) + [14*mm]
         summary_table = Table(table_data, colWidths=col_widths, repeatRows=1, rowHeights=None)
         
         # Apply enhanced styling with better visibility
@@ -226,11 +247,11 @@ def build_comprehensive_pdf(all_data):
             ('LINEBELOW', (0, 0), (-1, 0), 2.5, colors.HexColor('#1e3a8a')),
             ('LINEAFTER', (4, 0), (4, -1), 1.5, colors.HexColor('#666666')),  # Separator after guide column
             
-            # Enhanced padding for better text fit
-            ('LEFTPADDING', (0, 0), (-1, -1), 3),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-            ('TOPPADDING', (0, 0), (-1, 0), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            # Enhanced padding for better text fit - increased for headers to prevent collision
+            ('LEFTPADDING', (0, 0), (-1, -1), 2),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+            ('TOPPADDING', (0, 0), (-1, 0), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
             ('TOPPADDING', (0, 1), (-1, -1), 5),
             ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
         ]))
