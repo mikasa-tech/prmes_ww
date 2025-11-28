@@ -166,11 +166,14 @@ def build_review1_pdf(student, ev, phase=None, review=None):
         # Check if guide marks are applicable for this criterion
         guide_marks_applicable = criterion_config.get('guide_marks', True)
         
-        # Calculate average: if guide marks not applicable, average only m1 and m2
-        if guide_marks_applicable:
-            avg = int(round((m1 + m2 + m_guide) / 3)) if (m1 + m2 + m_guide) > 0 else 0
+        # Calculate average: only count non-zero evaluators
+        evaluators = [m1, m2, m_guide] if guide_marks_applicable else [m1, m2]
+        non_zero_evaluators = [val for val in evaluators if val > 0]
+        
+        if non_zero_evaluators:
+            avg = int(round(sum(non_zero_evaluators) / len(non_zero_evaluators)))
         else:
-            avg = int(round((m1 + m2) / 2)) if (m1 + m2) > 0 else 0
+            avg = 0
         
         criteria_marks.append({
             'm1': m1, 
