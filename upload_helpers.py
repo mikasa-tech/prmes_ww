@@ -52,10 +52,21 @@ def handle_three_evaluators(row: Dict, key_map: Dict, phase: int, review: int) -
     member2_comp = reverse_engineer_components(member2_total, phase, review)
     guide_comp = reverse_engineer_components(guide_total, phase, review)
     
-    # Calculate average components
+    # Calculate average components (only count non-zero evaluators)
     comp = {}
     for key in member1_comp.keys():
-        comp[key] = int(round((member1_comp[key] + member2_comp[key] + guide_comp[key]) / 3))
+        m1 = member1_comp[key]
+        m2 = member2_comp[key]
+        g = guide_comp[key]
+        
+        # Count how many evaluators actually provided marks (non-zero)
+        evaluators = [m1, m2, g]
+        non_zero_evaluators = [val for val in evaluators if val > 0]
+        
+        if non_zero_evaluators:
+            comp[key] = int(round(sum(non_zero_evaluators) / len(non_zero_evaluators)))
+        else:
+            comp[key] = 0
     
     return comp, member1_comp, member2_comp, guide_comp
 
