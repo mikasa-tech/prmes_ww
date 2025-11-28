@@ -119,9 +119,9 @@ def create_app() -> Flask:
                     key_map["project_title"] = raw
                 elif h in ("project_guide",):
                     key_map["project_guide"] = raw
-                elif h in ("member1", "member_1", "chairperson"):
+                elif h in ("member1", "member_1", "chairperson", "member1_total"):
                     key_map["member1"] = raw
-                elif h in ("member2", "member_2"):
+                elif h in ("member2", "member_2", "member2_total"):
                     key_map["member2"] = raw
                 elif h in ("internal_guide", "guide", "project_guide"):
                     key_map["internal_guide"] = raw
@@ -145,11 +145,13 @@ def create_app() -> Flask:
 
             # Delete existing evaluations for this specific phase and review only
             try:
-                db.session.execute(text(f"DELETE FROM evaluation WHERE phase = {phase} AND review_no = {review_no}"))
+                existing_evals = Evaluation.query.filter_by(phase=phase, review_no=review_no).all()
+                for ev in existing_evals:
+                    db.session.delete(ev)
                 db.session.commit()
-            except Exception:
+            except Exception as e:
                 db.session.rollback()
-                flash(f"Failed to delete existing Phase {phase} Review {review_no} data before import.", "error")
+                flash(f"Failed to delete existing Phase {phase} Review {review_no} data before import: {str(e)}", "error")
                 return redirect(request.url)
 
             created = 0
