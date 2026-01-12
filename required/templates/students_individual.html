@@ -73,10 +73,16 @@
                 {{ ev.total_marks }}/50
             </td>
             <td style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">
+                {% if config %}
+                {% for criterion in config.criteria %}
+                <strong>{{ criterion.name }}:</strong> {{ ev['criteria' ~ loop.index] }}<br>
+                {% endfor %}
+                {% else %}
                 <strong>C1:</strong> {{ ev.criteria1 }}<br>
                 <strong>C2:</strong> {{ ev.criteria2 }}<br>
                 <strong>C3:</strong> {{ ev.criteria3 }}<br>
                 <strong>C4:</strong> {{ ev.criteria4 }}
+                {% endif %}
             </td>
             <td style="border: 1px solid #ddd; padding: 8px;">
                 <a href="{{ url_for('student_detail', student_id=student.id, phase=phase, review=review) }}" style="color: #007bff; display: block; margin: 2px 0;">View</a>

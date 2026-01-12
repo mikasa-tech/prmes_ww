@@ -3,7 +3,7 @@ import os
 import csv
 from pathlib import Path
 from datetime import date
-from flask import Flask, render_template, request, redirect, url_for, send_file, flash
+from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session
 from models import db, Student, Evaluation
 from utils import reverse_engineer_components, normalize_header, TOTAL_MAX
 from pdf_template import build_review1_pdf
@@ -107,6 +107,9 @@ def create_app() -> Flask:
             key_map = {}
             for raw in fieldnames or []:
                 h = normalize_header(raw)
+                # Default: map normalized key to raw header (for dynamic lookup)
+                key_map[h] = raw
+                
                 if h in ("name", "student_name"):
                     key_map["name"] = raw
                 elif h in ("seat_no", "seatno", "usn", "univ_seat_no"):
@@ -119,9 +122,9 @@ def create_app() -> Flask:
                     key_map["project_title"] = raw
                 elif h in ("project_guide",):
                     key_map["project_guide"] = raw
-                elif h in ("member1", "member_1", "chairperson", "member1_total"):
+                elif h in ("member1", "member_1", "chairperson"):
                     key_map["member1"] = raw
-                elif h in ("member2", "member_2", "member2_total"):
+                elif h in ("member2", "member_2"):
                     key_map["member2"] = raw
                 elif h in ("internal_guide", "guide", "project_guide"):
                     key_map["internal_guide"] = raw
@@ -131,27 +134,22 @@ def create_app() -> Flask:
                     key_map["problem_identification"] = raw
                 elif h in ("presentation", "project_presentation_skill", "presentation_skill"):
                     key_map["presentation"] = raw
-                elif h in ("qa", "qna", "question_answer", "question_and_answer_session"):
-                    key_map["question_answer"] = raw
+                elif h in ("qa", "qna", "question_answer", "question_and_answer_session", "q_a"):
+                    # Map to full name to ensure fuzzy match with criteria "Question and answer session"
+                    key_map["question_and_answer_session"] = raw
 
             missing = [k for k in ("name", "seat_no") if k not in key_map]
-            has_components = all(k in key_map for k in ("literature_survey","problem_identification","presentation","question_answer"))
-            has_three_evaluators = all(k in key_map for k in ("member1","member2","internal_guide"))
-            if "total" not in key_map and not has_components and not has_three_evaluators:
-                missing.append("total or all four component columns or Member 1 + Member 2 + Internal Guide")
             if missing:
                 flash(f"Excel file missing required columns: {', '.join(missing)}", "error")
                 return redirect(request.url)
 
             # Delete existing evaluations for this specific phase and review only
             try:
-                existing_evals = Evaluation.query.filter_by(phase=phase, review_no=review_no).all()
-                for ev in existing_evals:
-                    db.session.delete(ev)
+                db.session.execute(text(f"DELETE FROM evaluation WHERE phase = {phase} AND review_no = {review_no}"))
                 db.session.commit()
-            except Exception as e:
+            except Exception:
                 db.session.rollback()
-                flash(f"Failed to delete existing Phase {phase} Review {review_no} data before import: {str(e)}", "error")
+                flash(f"Failed to delete existing Phase {phase} Review {review_no} data before import.", "error")
                 return redirect(request.url)
 
             created = 0
@@ -250,9 +248,11 @@ def create_app() -> Flask:
 
     @app.route("/students")
     def list_students():
-        # Get phase and review from query params, default to Phase 1 Review 1
-        phase = request.args.get("phase", 1, type=int)
-        review = request.args.get("review", 1, type=int)
+        # Get phase and review from query params, default to session then Phase 1 Review 1
+        phase = request.args.get("phase", session.get("current_phase", 1), type=int)
+        review = request.args.get("review", session.get("current_review", 1), type=int)
+        session["current_phase"] = phase
+        session["current_review"] = review
         
         # Get review configuration
         config = get_review_config(phase, review)
@@ -261,16 +261,18 @@ def create_app() -> Flask:
         # Filter evaluations by phase and review
         data = []
         for s in students:
-            ev = Evaluation.query.filter_by(student=s, phase=phase, review_no=review).first()
+            ev = Evaluation.query.filter_by(student_id=s.id, phase=phase, review_no=review).first()
             if ev:
                 data.append((s, ev))
         return render_template("students.html", items=data, phase=phase, review=review, config=config)
     
     @app.route("/students/groupwise")
     def students_groupwise():
-        # Get phase and review from query params
-        phase = request.args.get("phase", 1, type=int)
-        review = request.args.get("review", 1, type=int)
+        # Session-persistent phase and review
+        phase = request.args.get("phase", session.get("current_phase", 1), type=int)
+        review = request.args.get("review", session.get("current_review", 1), type=int)
+        session["current_phase"] = phase
+        session["current_review"] = review
         
         # Get review configuration
         config = get_review_config(phase, review)
@@ -282,21 +284,23 @@ def create_app() -> Flask:
         groups = {}
         for student in students:
             group_no = student.group_no or "No Group"
-            if group_no not in groups:
-                groups[group_no] = []
             
             # Get evaluation for specific phase and review
             ev = Evaluation.query.filter_by(student=student, phase=phase, review_no=review).first()
             if ev:
+                if group_no not in groups:
+                    groups[group_no] = []
                 groups[group_no].append((student, ev))
         
         return render_template("students_groupwise.html", groups=groups, phase=phase, review=review, config=config)
     
     @app.route("/students/guidewise")
     def students_guidewise():
-        # Get phase and review from query params
-        phase = request.args.get("phase", 1, type=int)
-        review = request.args.get("review", 1, type=int)
+        # Session-persistent phase and review
+        phase = request.args.get("phase", session.get("current_phase", 1), type=int)
+        review = request.args.get("review", session.get("current_review", 1), type=int)
+        session["current_phase"] = phase
+        session["current_review"] = review
         
         # Get review configuration
         config = get_review_config(phase, review)
@@ -320,9 +324,11 @@ def create_app() -> Flask:
     
     @app.route("/students/individual")
     def students_individual():
-        # Get phase and review from query params
-        phase = request.args.get("phase", 1, type=int)
-        review = request.args.get("review", 1, type=int)
+        # Session-persistent phase and review
+        phase = request.args.get("phase", session.get("current_phase", 1), type=int)
+        review = request.args.get("review", session.get("current_review", 1), type=int)
+        session["current_phase"] = phase
+        session["current_review"] = review
         
         # Get review configuration
         config = get_review_config(phase, review)
@@ -350,9 +356,11 @@ def create_app() -> Flask:
 
     @app.route("/students/<int:student_id>")
     def student_detail(student_id: int):
-        # Get phase and review from query params
-        phase = request.args.get("phase", 1, type=int)
-        review = request.args.get("review", 1, type=int)
+        # Session-persistent phase and review
+        phase = request.args.get("phase", session.get("current_phase", 1), type=int)
+        review = request.args.get("review", session.get("current_review", 1), type=int)
+        session["current_phase"] = phase
+        session["current_review"] = review
         
         student = Student.query.get_or_404(student_id)
         # Get evaluation for specific phase and review
@@ -369,9 +377,11 @@ def create_app() -> Flask:
 
     @app.route("/students/<int:student_id>/download")
     def download_review1(student_id: int):
-        # Get phase and review from query params
-        phase = request.args.get("phase", 1, type=int)
-        review = request.args.get("review", 1, type=int)
+        # Session-persistent phase and review
+        phase = request.args.get("phase", session.get("current_phase", 1), type=int)
+        review = request.args.get("review", session.get("current_review", 1), type=int)
+        session["current_phase"] = phase
+        session["current_review"] = review
         
         student = Student.query.get_or_404(student_id)
         # Get evaluation for specific phase and review
@@ -387,8 +397,20 @@ def create_app() -> Flask:
 
     @app.route("/students/<int:student_id>/csv")
     def download_review1_csv(student_id: int):
+        # Get phase/review from query params or session
+        phase = request.args.get("phase", session.get("current_phase", 1), type=int)
+        review = request.args.get("review", session.get("current_review", 1), type=int)
+        
         student = Student.query.get_or_404(student_id)
-        ev = sorted(student.evaluations, key=lambda e: (e.review_no, e.id))[-1]
+        ev = Evaluation.query.filter_by(student_id=student.id, phase=phase, review_no=review).first()
+        if not ev:
+            flash(f"No evaluation found for Phase {phase} Review {review}", "error")
+            return redirect(url_for("student_detail", student_id=student.id, phase=phase, review=review))
+
+        # Get dynamic configuration
+        config = get_review_config(phase, review)
+        labels = [c['name'] for c in config['criteria']]
+        max_marks = [c['max_marks'] for c in config['criteria']]
 
         # Prepare per-student CSV with component rows and averages
         bio = io.StringIO()
@@ -397,15 +419,18 @@ def create_app() -> Flask:
         writer.writerow(["Name", student.name])
         writer.writerow(["Group No", student.group_no or "-"])
         writer.writerow(["Project Title", student.project_title or "-"])
+        writer.writerow(["Phase", phase])
+        writer.writerow(["Review", review])
         writer.writerow([])
         writer.writerow(["Component", "Member 1", "Member 2", "Internal Guide", "Average"]) 
 
-        rows = [
-            ("Literature Survey (20)", ev.member1_literature or 0, ev.member2_literature or 0, ev.guide_literature or 0),
-            ("Problem Identification (10)", ev.member1_problem or 0, ev.member2_problem or 0, ev.guide_problem or 0),
-            ("Presentation (10)", ev.member1_presentation or 0, ev.member2_presentation or 0, ev.guide_presentation or 0),
-            ("Q&A (10)", ev.member1_qa or 0, ev.member2_qa or 0, ev.guide_qa or 0),
-        ]
+        rows = []
+        for i in range(1, 5):
+            lbl = f"{labels[i-1]} ({max_marks[i-1]})"
+            m1 = getattr(ev, f"member1_criteria{i}", 0) or 0
+            m2 = getattr(ev, f"member2_criteria{i}", 0) or 0
+            g = getattr(ev, f"guide_criteria{i}", 0) or 0
+            rows.append((lbl, m1, m2, g))
 
         member1_total = 0
         member2_total = 0
@@ -423,94 +448,92 @@ def create_app() -> Flask:
         writer.writerow(["Total (50)", member1_total, member2_total, guide_total, avg_total])
 
         bio.seek(0)
-        filename = f"Review-1_{student.seat_no}_{student.name.replace(' ', '_')}.csv"
+        filename = f"Phase{phase}_Review{review}_{student.seat_no}_{student.name.replace(' ', '_')}.csv"
         return send_file(io.BytesIO(bio.getvalue().encode("utf-8")), as_attachment=True, download_name=filename, mimetype="text/csv")
 
     @app.route("/export.csv")
     def download_export_csv():
-        EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        export_path = EXPORTS_DIR / "evaluations_review1.csv"
-        if not export_path.exists():
-            # If file missing (e.g., before any uploads), build it now from current DB
-            with export_path.open("w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow([
-                    "group_no",
-                    "project_title",
-                    "seat_no",
-                    "name",
-                    "review_no",
-                    "member1_literature",
-                    "member1_problem",
-                    "member1_presentation",
-                    "member1_qa",
-                    "member1_total",
-                    "member2_literature",
-                    "member2_problem",
-                    "member2_presentation",
-                    "member2_qa",
-                    "member2_total",
-                    "guide_literature",
-                    "guide_problem",
-                    "guide_presentation",
-                    "guide_qa",
-                    "guide_total",
-                    "avg_literature",
-                    "avg_problem",
-                    "avg_presentation",
-                    "avg_qa",
-                    "avg_total_marks",
-                ])
-                students = Student.query.order_by(Student.group_no, Student.name).all()
-                for s in students:
-                    ev = sorted(s.evaluations, key=lambda e: (e.review_no, e.id))[-1] if s.evaluations else None
-                    if not ev:
-                        continue
-                    
-                    # Calculate individual evaluator totals
-                    member1_total = (ev.member1_literature or 0) + (ev.member1_problem or 0) + (ev.member1_presentation or 0) + (ev.member1_qa or 0)
-                    member2_total = (ev.member2_literature or 0) + (ev.member2_problem or 0) + (ev.member2_presentation or 0) + (ev.member2_qa or 0)
-                    guide_total = (ev.guide_literature or 0) + (ev.guide_problem or 0) + (ev.guide_presentation or 0) + (ev.guide_qa or 0)
-                    
-                    # Calculate averages
-                    avg_literature = int(round(((ev.member1_literature or 0) + (ev.member2_literature or 0) + (ev.guide_literature or 0)) / 3))
-                    avg_problem = int(round(((ev.member1_problem or 0) + (ev.member2_problem or 0) + (ev.guide_problem or 0)) / 3))
-                    avg_presentation = int(round(((ev.member1_presentation or 0) + (ev.member2_presentation or 0) + (ev.guide_presentation or 0)) / 3))
-                    avg_qa = int(round(((ev.member1_qa or 0) + (ev.member2_qa or 0) + (ev.guide_qa or 0)) / 3))
-                    avg_total = avg_literature + avg_problem + avg_presentation + avg_qa
-                    
-                    writer.writerow([
-                        s.group_no or "",
-                        s.project_title or "",
-                        s.seat_no,
-                        s.name,
-                        ev.review_no,
-                        # Member 1 marks
-                        ev.member1_literature or 0,
-                        ev.member1_problem or 0,
-                        ev.member1_presentation or 0,
-                        ev.member1_qa or 0,
-                        member1_total,
-                        # Member 2 marks
-                        ev.member2_literature or 0,
-                        ev.member2_problem or 0,
-                        ev.member2_presentation or 0,
-                        ev.member2_qa or 0,
-                        member2_total,
-                        # Guide marks
-                        ev.guide_literature or 0,
-                        ev.guide_problem or 0,
-                        ev.guide_presentation or 0,
-                        ev.guide_qa or 0,
-                        guide_total,
-                        # Average marks
-                        avg_literature,
-                        avg_problem,
-                        avg_presentation,
-                        avg_qa,
-                        avg_total,
-                    ])
-        return send_file(export_path, as_attachment=True, download_name="evaluations_review1.csv", mimetype="text/csv")
+        # Get phase/review from session or params
+        phase = request.args.get("phase", session.get("current_phase", 1), type=int)
+        review = request.args.get("review", session.get("current_review", 1), type=int)
+        
+        # Get dynamic configuration
+        config = get_review_config(phase, review)
+        labels = [c['name'] for c in config['criteria']]
+        
+        bio = io.StringIO()
+        writer = csv.writer(bio)
+        
+        # Headers
+        header_row = [
+            "group_no", "project_title", "seat_no", "name", "phase", "review_no"
+        ]
+        # Add evaluator-specific headers
+        for evaluator in ["member1", "member2", "guide"]:
+            for lbl in labels:
+                header_row.append(f"{evaluator}_{lbl.lower().replace(' ', '_')}")
+            header_row.append(f"{evaluator}_total")
+        
+        # Add average headers
+        for lbl in labels:
+            header_row.append(f"avg_{lbl.lower().replace(' ', '_')}")
+        header_row.append("avg_total_marks")
+        
+        writer.writerow(header_row)
+
+        students = Student.query.order_by(Student.group_no, Student.name).all()
+        for s in students:
+            ev = Evaluation.query.filter_by(student_id=s.id, phase=phase, review_no=review).first()
+            if not ev:
+                continue
+            
+            row = [
+                s.group_no or "",
+                s.project_title or "",
+                s.seat_no,
+                s.name,
+                phase,
+                review
+            ]
+            
+            ev_data = {}
+            # Evaluate totals for each member
+            totals = {"member1": 0, "member2": 0, "guide": 0}
+            avgs = {}
+            
+            for i in range(1, 5):
+                m1 = getattr(ev, f"member1_criteria{i}", 0) or 0
+                m2 = getattr(ev, f"member2_criteria{i}", 0) or 0
+                g = getattr(ev, f"guide_criteria{i}", 0) or 0
+                
+                ev_data[f"member1_{i}"] = m1
+                ev_data[f"member2_{i}"] = m2
+                ev_data[f"guide_{i}"] = g
+                
+                totals["member1"] += m1
+                totals["member2"] += m2
+                totals["guide"] += g
+                
+                avgs[i] = int(round((m1 + m2 + g) / 3))
+
+            # Add member marks to row
+            for evaluator in ["member1", "member2", "guide"]:
+                for i in range(1, 5):
+                    row.append(ev_data[f"{evaluator}_{i}"])
+                row.append(totals[evaluator])
+            
+            # Add averages
+            avg_sum = 0
+            for i in range(1, 5):
+                row.append(avgs[i])
+                avg_sum += avgs[i]
+            row.append(ev.total_marks)
+            
+            writer.writerow(row)
+
+        bio.seek(0)
+        filename = f"Evaluations_Phase{phase}_Review{review}.csv"
+        return send_file(io.BytesIO(bio.getvalue().encode("utf-8")), as_attachment=True, download_name=filename, mimetype="text/csv")
     
     @app.route("/summary.pdf")
     def download_summary_pdf():

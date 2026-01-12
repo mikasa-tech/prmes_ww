@@ -52,7 +52,7 @@ def handle_three_evaluators(row: Dict, key_map: Dict, phase: int, review: int) -
     member2_comp = reverse_engineer_components(member2_total, phase, review)
     guide_comp = reverse_engineer_components(guide_total, phase, review)
     
-    # Calculate average components (only count non-zero evaluators)
+    # Calculate average components
     comp = {}
     for key in member1_comp.keys():
         m1 = member1_comp[key]

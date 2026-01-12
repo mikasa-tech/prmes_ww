@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Students - Individual Detailed View</h3>
+
+<!-- Phase and Review Selection -->
+<div class="phase-review-selector" style="margin: 15px 0; padding: 15px; background: #e8f4f8; border-radius: 5px; border: 2px solid #007bff;">
+    <strong style="font-size: 16px;">Select Phase & Review:</strong>
+    <div style="margin-top: 10px;">
+        <div style="display: inline-block; margin-right: 20px;">
+            <strong>Phase 1:</strong>
+            <a href="{{ url_for('students_individual', phase=1, review=1) }}" style="margin: 0 5px; padding: 8px 15px; background: {% if phase == 1 and review == 1 %}#28a745{% else %}#6c757d{% endif %}; color: white; text-decoration: none; border-radius: 3px;">Review 1</a>
+            <a href="{{ url_for('students_individual', phase=1, review=2) }}" style="margin: 0 5px; padding: 8px 15px; background: {% if phase == 1 and review == 2 %}#28a745{% else %}#6c757d{% endif %}; color: white; text-decoration: none; border-radius: 3px;">Review 2</a>
+        </div>
+        <div style="display: inline-block;">
+            <strong>Phase 2:</strong>
+            <a href="{{ url_for('students_individual', phase=2, review=1) }}" style="margin: 0 5px; padding: 8px 15px; background: {% if phase == 2 and review == 1 %}#28a745{% else %}#6c757d{% endif %}; color: white; text-decoration: none; border-radius: 3px;">Review 1</a>
+            <a href="{{ url_for('students_individual', phase=2, review=2) }}" style="margin: 0 5px; padding: 8px 15px; background: {% if phase == 2 and review == 2 %}#28a745{% else %}#6c757d{% endif %}; color: white; text-decoration: none; border-radius: 3px;">Review 2</a>
+        </div>
+    </div>
+    <div style="margin-top: 10px; font-size: 14px; color: #555;">
+        <em>Currently viewing: Phase {{ phase }} Review {{ review }}</em>
+    </div>
+</div>
+
+<div class="view-options" style="margin: 15px 0; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+    <strong>View Options:</strong>
+    <a href="{{ url_for('list_students', phase=phase, review=review) }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">All Students</a>
+    <a href="{{ url_for('students_groupwise', phase=phase, review=review) }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Group-wise</a>
+    <a href="{{ url_for('students_guidewise', phase=phase, review=review) }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Guide-wise</a>
+    <span style="margin: 0 10px; padding: 5px 10px; background: #28a745; color: white; border-radius: 3px;">Individual Detailed</span>
+</div>
+
+<table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+    <thead>
+        <tr style="background: #1e3a8a !important; color: white !important; font-weight: bold;">
+            <th style="border: 1px solid #ddd; padding: 10px; background: #1e3a8a !important; color: white !important;">Group</th>
+            <th style="border: 1px solid #ddd; padding: 10px; background: #1e3a8a !important; color: white !important;">Seat No</th>
+            <th style="border: 1px solid #ddd; padding: 10px; background: #1e3a8a !important; color: white !important;">Name</th>
+            <th style="border: 1px solid #ddd; padding: 10px; background: #1e3a8a !important; color: white !important;">Project Title</th>
+            <th style="border: 1px solid #ddd; padding: 10px; background: #1e3a8a !important; color: white !important;">Member-1 Total</th>
+            <th style="border: 1px solid #ddd; padding: 10px; background: #1e3a8a !important; color: white !important;">Member-2 Total</th>
+            <th style="border: 1px solid #ddd; padding: 10px; background: #1e3a8a !important; color: white !important;">Guide Total</th>
+            <th style="border: 1px solid #ddd; padding: 10px; background: #1e3a8a !important; color: white !important;">Average Total</th>
+            <th style="border: 1px solid #ddd; padding: 10px; background: #1e3a8a !important; color: white !important;">Components</th>
+            <th style="border: 1px solid #ddd; padding: 10px; background: #1e3a8a !important; color: white !important;">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for data in students_data %}
+        {% set student = data.student %}
+        {% set ev = data.evaluation %}
+        <tr style="{% if loop.index % 2 == 0 %}background: #f8f9fa;{% endif %}">
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ student.group_no or '-' }}</td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ student.seat_no }}</td>
+            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">{{ student.name }}</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">
+                {% if student.project_title and student.project_title|length > 30 %}
+                    <span title="{{ student.project_title }}">{{ student.project_title[:30] }}...</span>
+                {% else %}
+                    {{ student.project_title or '-' }}
+                {% endif %}
+            </td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #fff3cd;">
+                <strong>{{ data.member1_total }}/50</strong>
+            </td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #d1ecf1;">
+                <strong>{{ data.member2_total }}/50</strong>
+            </td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #d4edda;">
+                <strong>{{ data.guide_total }}/50</strong>
+            </td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #e2e3e5; font-weight: bold; font-size: 14px;">
+                {{ ev.total_marks }}/50
+            </td>
+            <td style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">
+                {% if config %}
+                {% for criterion in config.criteria %}
+                <strong>{{ criterion.name }}:</strong> {{ ev['criteria' ~ loop.index] }}<br>
+                {% endfor %}
+                {% else %}
+                <strong>C1:</strong> {{ ev.criteria1 }}<br>
+                <strong>C2:</strong> {{ ev.criteria2 }}<br>
+                <strong>C3:</strong> {{ ev.criteria3 }}<br>
+                <strong>C4:</strong> {{ ev.criteria4 }}
+                {% endif %}
+            </td>
+            <td style="border: 1px solid #ddd; padding: 8px;">
+                <a href="{{ url_for('student_detail', student_id=student.id, phase=phase, review=review) }}" style="color: #007bff; display: block; margin: 2px 0;">View</a>
+                <a href="{{ url_for('download_review1', student_id=student.id, phase=phase, review=review) }}" style="color: #28a745; display: block; margin: 2px 0;">PDF</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Overall Statistics -->
+<div class="overall-stats" style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 5px; border-left: 5px solid #007bff;">
+    <h4>Overall Class Statistics</h4>
+    {% set total_students = students_data|length %}
+    {% set total_marks = students_data|sum(attribute='evaluation.total_marks') %}
+    {% set avg_marks = (total_marks / total_students) if total_students > 0 else 0 %}
+    {% set max_marks = students_data|max(attribute='evaluation.total_marks') if students_data else {'evaluation': {'total_marks': 0}} %}
+    {% set min_marks = students_data|min(attribute='evaluation.total_marks') if students_data else {'evaluation': {'total_marks': 0}} %}
+    
+    <div style="display: flex; justify-content: space-around; margin-top: 15px;">
+        <div style="text-align: center;">
+            <strong>Total Students</strong><br>
+            <span style="font-size: 24px; color: #007bff;">{{ total_students }}</span>
+        </div>
+        <div style="text-align: center;">
+            <strong>Class Average</strong><br>
+            <span style="font-size: 24px; color: #28a745;">{{ "%.1f"|format(avg_marks) }}/50</span>
+        </div>
+        <div style="text-align: center;">
+            <strong>Highest Score</strong><br>
+            <span style="font-size: 24px; color: #ffc107;">{{ max_marks.evaluation.total_marks }}/50</span>
+        </div>
+        <div style="text-align: center;">
+            <strong>Lowest Score</strong><br>
+            <span style="font-size: 24px; color: #dc3545;">{{ min_marks.evaluation.total_marks }}/50</span>
+        </div>
+        <div style="text-align: center;">
+            <strong>Pass Rate (≥25)</strong><br>
+            {% set pass_count = students_data|selectattr('evaluation.total_marks', '>=', 25)|list|length %}
+            <span style="font-size: 24px; color: #17a2b8;">{{ "%.1f"|format((pass_count/total_students)*100) if total_students > 0 else 0 }}%</span>
+        </div>
+    </div>
+</div>
+
+<!-- Grade Distribution -->
+<div class="grade-distribution" style="margin-top: 20px; padding: 20px; background: #fff; border: 1px solid #ddd; border-radius: 5px;">
+    <h4>Grade Distribution</h4>
+    {% set grade_a = students_data|selectattr('evaluation.total_marks', '>=', 40)|list|length %}
+    {% set grade_b = students_data|selectattr('evaluation.total_marks', '>=', 35)|selectattr('evaluation.total_marks', '<', 40)|list|length %}
+    {% set grade_c = students_data|selectattr('evaluation.total_marks', '>=', 30)|selectattr('evaluation.total_marks', '<', 35)|list|length %}
+    {% set grade_d = students_data|selectattr('evaluation.total_marks', '>=', 25)|selectattr('evaluation.total_marks', '<', 30)|list|length %}
+    {% set grade_f = students_data|selectattr('evaluation.total_marks', '<', 25)|list|length %}
+    
+    <div style="display: flex; justify-content: space-around; margin-top: 15px;">
+        <div style="text-align: center; padding: 10px; background: #d4edda; border-radius: 5px;">
+            <strong>A Grade (40-50)</strong><br>
+            <span style="font-size: 18px;">{{ grade_a }} students</span>
+        </div>
+        <div style="text-align: center; padding: 10px; background: #d1ecf1; border-radius: 5px;">
+            <strong>B Grade (35-39)</strong><br>
+            <span style="font-size: 18px;">{{ grade_b }} students</span>
+        </div>
+        <div style="text-align: center; padding: 10px; background: #fff3cd; border-radius: 5px;">
+            <strong>C Grade (30-34)</strong><br>
+            <span style="font-size: 18px;">{{ grade_c }} students</span>
+        </div>
+        <div style="text-align: center; padding: 10px; background: #f8d7da; border-radius: 5px;">
+            <strong>D Grade (25-29)</strong><br>
+            <span style="font-size: 18px;">{{ grade_d }} students</span>
+        </div>
+        <div style="text-align: center; padding: 10px; background: #f5c6cb; border-radius: 5px;">
+            <strong>F Grade (<25)</strong><br>
+            <span style="font-size: 18px;">{{ grade_f }} students</span>
+        </div>
+    </div>
+</div>
+
+<p style="margin-top: 20px;">
+    <a href="{{ url_for('download_summary_pdf') }}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">
+        Download Detailed Summary PDF
+    </a>
+</p>
+
+{% endblock %}

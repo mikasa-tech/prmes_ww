@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Students - Guide-wise View</h3>
+
+<!-- Phase and Review Selection -->
+<div class="phase-review-selector" style="margin: 15px 0; padding: 15px; background: #e8f4f8; border-radius: 5px; border: 2px solid #007bff;">
+    <strong style="font-size: 16px;">Select Phase & Review:</strong>
+    <div style="margin-top: 10px;">
+        <div style="display: inline-block; margin-right: 20px;">
+            <strong>Phase 1:</strong>
+            <a href="{{ url_for('students_guidewise', phase=1, review=1) }}" style="margin: 0 5px; padding: 8px 15px; background: {% if phase == 1 and review == 1 %}#28a745{% else %}#6c757d{% endif %}; color: white; text-decoration: none; border-radius: 3px;">Review 1</a>
+            <a href="{{ url_for('students_guidewise', phase=1, review=2) }}" style="margin: 0 5px; padding: 8px 15px; background: {% if phase == 1 and review == 2 %}#28a745{% else %}#6c757d{% endif %}; color: white; text-decoration: none; border-radius: 3px;">Review 2</a>
+        </div>
+        <div style="display: inline-block;">
+            <strong>Phase 2:</strong>
+            <a href="{{ url_for('students_guidewise', phase=2, review=1) }}" style="margin: 0 5px; padding: 8px 15px; background: {% if phase == 2 and review == 1 %}#28a745{% else %}#6c757d{% endif %}; color: white; text-decoration: none; border-radius: 3px;">Review 1</a>
+            <a href="{{ url_for('students_guidewise', phase=2, review=2) }}" style="margin: 0 5px; padding: 8px 15px; background: {% if phase == 2 and review == 2 %}#28a745{% else %}#6c757d{% endif %}; color: white; text-decoration: none; border-radius: 3px;">Review 2</a>
+        </div>
+    </div>
+    <div style="margin-top: 10px; font-size: 14px; color: #555;">
+        <em>Currently viewing: Phase {{ phase }} Review {{ review }}</em>
+    </div>
+</div>
+
+<div class="view-options" style="margin: 15px 0; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+    <strong>View Options:</strong>
+    <a href="{{ url_for('list_students', phase=phase, review=review) }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">All Students</a>
+    <a href="{{ url_for('students_groupwise', phase=phase, review=review) }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Group-wise</a>
+    <span style="margin: 0 10px; padding: 5px 10px; background: #28a745; color: white; border-radius: 3px;">Guide-wise</span>
+    <a href="{{ url_for('students_individual', phase=phase, review=review) }}" style="margin: 0 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px;">Individual Detailed</a>
+</div>
+
+{% for guide_name, students in guides.items() %}
+<div class="guide-section" style="margin: 20px 0; border: 2px solid #ddd; border-radius: 5px; padding: 15px;">
+    <h4 style="background: #17a2b8; color: white; padding: 10px; margin: -15px -15px 15px -15px; border-radius: 3px 3px 0 0;">
+        {{ guide_name }} ({{ students|length }} students)
+    </h4>
+    
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f8f9fa;">
+                <th style="border: 1px solid #ddd; padding: 8px;">Group</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Seat No</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Name</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Project Title</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Guide Marks</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Member1 Marks</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Member2 Marks</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Total Score</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student, ev in students %}
+            {% set guide_total = (ev.guide_criteria1 or 0) + (ev.guide_criteria2 or 0) + (ev.guide_criteria3 or 0) + (ev.guide_criteria4 or 0) %}
+            {% set member1_total = (ev.member1_criteria1 or 0) + (ev.member1_criteria2 or 0) + (ev.member1_criteria3 or 0) + (ev.member1_criteria4 or 0) %}
+            {% set member2_total = (ev.member2_criteria1 or 0) + (ev.member2_criteria2 or 0) + (ev.member2_criteria3 or 0) + (ev.member2_criteria4 or 0) %}
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">{{ student.group_no or '-' }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">{{ student.seat_no }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">{{ student.name }}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">
+                    {% if student.project_title and student.project_title|length > 35 %}
+                        {{ student.project_title[:35] }}...
+                    {% else %}
+                        {{ student.project_title or '-' }}
+                    {% endif %}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #e8f5e8;">
+                    <strong>{{ guide_total }}/50</strong>
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ member1_total }}/50</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ member2_total }}/50</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><strong>{{ ev.total_marks }}/50</strong></td>
+                <td style="border: 1px solid #ddd; padding: 8px;">
+                    <a href="{{ url_for('student_detail', student_id=student.id, phase=phase, review=review) }}" style="color: #007bff;">View</a> |
+                    <a href="{{ url_for('download_review1', student_id=student.id, phase=phase, review=review) }}" style="color: #28a745;">PDF</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+</div>
+{% endfor %}
+
+<p style="margin-top: 20px;">
+    <a href="{{ url_for('download_summary_pdf', phase=phase, review=review) }}" style="background-color: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">
+        Download Comprehensive CIE Review Report (Guide-wise + Group-wise)
+    </a>
+</p>
+
+{% endblock %}

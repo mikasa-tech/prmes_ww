@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Upload Evaluation Data Excel (.xlsx)</h3>
+<form method="post" enctype="multipart/form-data">
+  <div style="margin-bottom: 15px;">
+    <label for="phase"><strong>Select Phase:</strong></label>
+    <select name="phase" id="phase" required style="margin-left: 10px; padding: 5px;">
+      <option value="1" selected>Phase 1</option>
+      <option value="2">Phase 2</option>
+    </select>
+  </div>
+  
+  <div style="margin-bottom: 15px;">
+    <label for="review"><strong>Select Review:</strong></label>
+    <select name="review" id="review" required style="margin-left: 10px; padding: 5px;">
+      <option value="1" selected>Review 1</option>
+      <option value="2">Review 2</option>
+    </select>
+  </div>
+  
+  <div style="margin-bottom: 15px;">
+    <label for="file"><strong>Choose File:</strong></label>
+    <input type="file" name="file" id="file" accept=".xlsx" required style="margin-left: 10px;" />
+  </div>
+  
+  <button type="submit" style="padding: 8px 20px; font-size: 14px;">Upload</button>
+</form>
+<p>Upload an Excel .xlsx file with a header row. Accepted headers (case-insensitive):</p>
+<ul>
+  <li>Required: <code>name</code>, <code>seat_no</code>, plus either <code>total</code> or all components.</li>
+  <li>Optional: <code>group_no</code>, <code>project_title</code>.</li>
+  <li>Optional components: <code>literature_survey</code>, <code>problem_identification</code>, <code>presentation</code>, <code>question_answer</code>.</li>
+  <li>Alternatively: <code>Member 1</code>, <code>Member 2</code>, <code>Internal Guide</code> totals (the app will compute components and averages).</li>
+</ul>
+{% endblock %}

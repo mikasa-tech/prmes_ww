@@ -1,0 +1,8 @@
+group_no,project_title,seat_no,name,review_no,member1_literature,member1_problem,member1_presentation,member1_qa,member1_total,member2_literature,member2_problem,member2_presentation,member2_qa,member2_total,guide_literature,guide_problem,guide_presentation,guide_qa,guide_total,avg_literature,avg_problem,avg_presentation,avg_qa,avg_total_marks
+1,Autism Detection,3GN22CS020,Bhavani C,1,18,9,9,9,45,19,9,9,9,46,20,10,10,10,50,19,9,9,9,46
+1,Autism Detection,3GN22CS037,Kanaka,1,18,9,9,9,45,19,9,9,9,46,20,10,10,10,50,19,9,9,9,46
+2,Gen AI for yield prediction,3GN22CS039,Mahadevi,1,19,10,10,9,48,17,9,9,9,44,19,10,10,9,48,18,10,10,9,47
+3,Human Activity Recognisation,3GN22CS005,Aishwarya,1,14,7,7,7,35,19,10,10,10,49,19,10,9,9,47,17,9,9,9,44
+3,Human Activity Recognisation,3GN22CS006,Akshata,1,14,7,7,7,35,19,10,10,10,49,19,10,9,9,47,17,9,9,9,44
+4,Intelligent Learning Analytics Platform,3GN22CS025,Diksha,1,19,10,9,9,47,17,9,8,8,42,19,9,9,9,46,18,9,9,9,45
+4,Intelligent Learning Analytics Platform,3GN22CS059,Ningamma,1,19,10,9,9,47,17,9,8,8,42,19,9,9,9,46,18,9,9,9,45
